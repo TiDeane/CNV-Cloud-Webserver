@@ -1,28 +1,26 @@
 package pt.ulisboa.tecnico.cnv.javassist.tools;
 
-import java.util.List;
-
 import javassist.CannotCompileException;
 import javassist.CtBehavior;
 
+import java.util.List;
+
+import java.io.FileWriter;
+import java.io.BufferedWriter;
+import java.io.PrintWriter;
+import java.io.IOException;
+import java.io.File;
+
 public class MetricsExtractor extends AbstractJavassistTool {
 
-    /**
-     * Number of executed basic blocks.
-     */
-    private static long nblocks = 0;
+    private static final String LOG_FILE_PATH = "metrics/metrics.txt";
 
-    /**
-     * Number of executed methods.
-     */
-    private static long nmethods = 0;
+    private static final ThreadLocal<Long> nblocks = ThreadLocal.withInitial(() -> 0L);
+    private static final ThreadLocal<Long> nmethods = ThreadLocal.withInitial(() -> 0L);
+    private static final ThreadLocal<Long> ninsts = ThreadLocal.withInitial(() -> 0L);
 
-    /**
-     * Number of executed instructions.
-     */
-    private static long ninsts = 0;
-
-    private static final ThreadLocal<Long> threadComplexity = ThreadLocal.withInitial(() -> 0L);
+    private static final ThreadLocal<Long> threadComplexity = ThreadLocal.withInitial(() -> 0L)
+    ;
     private static final ThreadLocal<String> threadRequestInfo = new ThreadLocal<>();
 
     private boolean isHttpHandler(CtBehavior behavior) {
@@ -35,20 +33,35 @@ public class MetricsExtractor extends AbstractJavassistTool {
     }
 
     public static void incBasicBlock(int position, int length) {
-        nblocks++;
-        ninsts += length;
+        nblocks.set(nblocks.get() + 1);
+        ninsts.set(ninsts.get() + length);
     }
 
     public static void incBehavior(String name) {
-        nmethods++;
+        nmethods.set(nmethods.get() + 1);
     }
 
     public static void addComplexity(long amount) {
         threadComplexity.set(threadComplexity.get() + amount);
     }
 
-    public static void resetComplexity() {
+    public static void resetMetrics() {
+        nmethods.set(0L);
+        nblocks.set(0L);
+        ninsts.set(0L);
         threadComplexity.set(0L);
+    }
+
+    public static long getBasicBlocks() {
+    return nblocks.get();
+}
+
+    public static long getInstructions() {
+        return ninsts.get();
+    }
+
+    public static long getMethods() {
+        return nmethods.get();
     }
 
     public static long getComplexity() {
@@ -70,7 +83,7 @@ public class MetricsExtractor extends AbstractJavassistTool {
         String reqInfo = threadRequestInfo.get();
         System.out.printf("[Thread %d] [Handler: %s] URI: %s, Complexity: %d%n",
             tid, handlerName, reqInfo != null ? reqInfo : "N/A", score);
-        resetComplexity();
+        resetMetrics(); // this might be resetting twice in a row
     }
 
     // currently unused
@@ -81,29 +94,50 @@ public class MetricsExtractor extends AbstractJavassistTool {
         System.out.println(String.format("[%s] ComplexityScore: %s", MetricsExtractor.class.getSimpleName(), getComplexity()));
     }
 
+    public static void printStatistics2(String handlerName) {
+        long tid = Thread.currentThread().getId();
+        String line = String.format(
+            "[Thread %d] Handler: %s, Request: %s, Methods: %d, Blocks: %d, Instructions: %d, Complexity: %d\n",
+            tid,
+            handlerName,
+            threadRequestInfo.get() != null ? threadRequestInfo.get() : "N/A",
+            getMethods(),
+            getBasicBlocks(),
+            getInstructions(),
+            getComplexity()
+        );
+
+        try (FileWriter fw = new FileWriter(LOG_FILE_PATH, true);
+            BufferedWriter bw = new BufferedWriter(fw);
+            PrintWriter out = new PrintWriter(bw)) {
+            out.print(line);
+        } catch (IOException e) {
+            System.err.println("Error writing metrics: " + e.getMessage());
+        }
+    }
+
     @Override
     protected void transform(CtBehavior behavior) throws Exception {
         super.transform(behavior);
+        behavior.insertAfter(String.format("%s.incBehavior(\"%s\");", MetricsExtractor.class.getName(), behavior.getLongName()));
 
         if (isHttpHandler(behavior)) {
             String handlerName = behavior.getDeclaringClass().getSimpleName();
-            behavior.insertBefore(MetricsExtractor.class.getName() + ".resetComplexity();");
-            behavior.insertAfter(MetricsExtractor.class.getName() + ".reportComplexity(\"" + handlerName + "\");", true);
+            behavior.insertBefore(MetricsExtractor.class.getName() + ".resetMetrics();");
+            behavior.insertAfter(MetricsExtractor.class.getName() + ".printStatistics2(\"" + handlerName + "\");", true);
         }
     }
 
     @Override
     protected void transform(BasicBlock block) throws CannotCompileException {
         super.transform(block);
+        block.behavior.insertAt(block.line, String.format("%s.incBasicBlock(%s, %s);", MetricsExtractor.class.getName(), block.getPosition(), block.getLength()));
 
-        // Rough complexity: each block after the first adds branching paths
+        // Rough complexity: not sure if this is a good metric
         if (block.getLength() > 0) {
             long complexity = Math.max(1, block.getLength() / 5);
             block.behavior.insertAt(block.line, String.format("%s.addComplexity(%dL);", MetricsExtractor.class.getName(), complexity));
         }
-
-        // remove this? it's currently unused
-        //block.behavior.insertAt(block.line, String.format("%s.incBasicBlock(%s, %s);", MetricsExtractor.class.getName(), block.getPosition(), block.getLength()));
     }
 
 }
