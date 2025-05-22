@@ -5,9 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
 
+import pt.ulisboa.tecnico.cnv.javassist.tools.MetricsExtractor;
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -114,6 +119,8 @@ public class GameOfLifeHandler implements HttpHandler, RequestHandler<Map<String
 
         String response = handleWorkload(map, iterations);
 
+        resultsToTxt(iterations, mapFilename); // later on, write to DynamoDB
+
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
         os.write(response.getBytes());
@@ -218,4 +225,23 @@ public class GameOfLifeHandler implements HttpHandler, RequestHandler<Map<String
         }
         return result;
     }
+
+    private void resultsToTxt(int iterations, String mapFilename) {
+        String line = String.format(
+            "Handler: %s, iterations: %d, mapFilename: %s, Instructions: %d\n",
+            "GameOfLifeHandler",
+            iterations,
+            mapFilename,
+            MetricsExtractor.getInstructions()
+        );
+
+        try (FileWriter fw = new FileWriter("metrics/metrics.txt", true);
+            BufferedWriter bw = new BufferedWriter(fw);
+            PrintWriter out = new PrintWriter(bw)) {
+            out.print(line);
+        } catch (IOException e) {
+            System.err.println("Error writing metrics: " + e.getMessage());
+        }
+    }
+
 }

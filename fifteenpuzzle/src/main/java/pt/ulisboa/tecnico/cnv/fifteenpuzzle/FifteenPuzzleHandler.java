@@ -5,8 +5,13 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
+import pt.ulisboa.tecnico.cnv.javassist.tools.MetricsExtractor;
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
@@ -63,6 +68,8 @@ public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<Str
         int shuffles = Integer.parseInt(parameters.get("shuffles"));
 
         String response = handleWorkload(size, shuffles);
+
+        resultsToTxt(size, shuffles); // later on, write to DynamoDB
 
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
@@ -125,6 +132,24 @@ public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<Str
             }
         }
         return result;
+    }
+
+    private void resultsToTxt(int size, int shuffles) {
+        String line = String.format(
+            "Handler: %s, size: %d, shuffles: %d, Instructions: %d\n",
+            "FifteenPuzzleHandler",
+            size,
+            shuffles,
+            MetricsExtractor.getInstructions()
+        );
+
+        try (FileWriter fw = new FileWriter("metrics/metrics.txt", true);
+            BufferedWriter bw = new BufferedWriter(fw);
+            PrintWriter out = new PrintWriter(bw)) {
+            out.print(line);
+        } catch (IOException e) {
+            System.err.println("Error writing metrics: " + e.getMessage());
+        }
     }
 
 }

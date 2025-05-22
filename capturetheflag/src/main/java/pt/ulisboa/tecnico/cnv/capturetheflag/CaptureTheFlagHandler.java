@@ -5,8 +5,14 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
+import pt.ulisboa.tecnico.cnv.javassist.tools.MetricsExtractor;
+
+import java.io.BufferedWriter;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
@@ -64,6 +70,8 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
         }
 
         String response = handleWorkload(gridSize, numBlueAgents, numRedAgents, flagPlacementType);
+
+        resultsToTxt(gridSize, numBlueAgents, numRedAgents, flagPlacementType); // later on, write to DynamoDB
 
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
@@ -154,4 +162,25 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
 
         return List.of('A', 'B', 'C').contains(flagPlacementType);
     }
+
+    private void resultsToTxt(int gridSize, int numBlueAgents, int numRedAgents, char flagPlacementType) {
+        String line = String.format(
+            "Handler: %s, gridSize: %d, numBlueAgents: %d, numRedAgents: %d, flagPlacementType: %c, Instructions: %d\n",
+            "CaptureTheFlagHandler",
+            gridSize,
+            numBlueAgents,
+            numRedAgents,
+            flagPlacementType,
+            MetricsExtractor.getInstructions()
+        );
+
+        try (FileWriter fw = new FileWriter("metrics/metrics.txt", true);
+            BufferedWriter bw = new BufferedWriter(fw);
+            PrintWriter out = new PrintWriter(bw)) {
+            out.print(line);
+        } catch (IOException e) {
+            System.err.println("Error writing metrics: " + e.getMessage());
+        }
+    }
+
 }
