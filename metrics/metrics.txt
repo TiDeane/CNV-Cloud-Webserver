@@ -1,3 +1,0 @@
-[Thread 26] Handler: CaptureTheFlagHandler, Request: N/A, Methods: 8499726, Blocks: 54943758, Instructions: 485307175, Complexity: 94870708
-[Thread 25] Handler: GameOfLifeHandler, Request: N/A, Methods: 101000011, Blocks: 3470000184, Instructions: 54698003822, Complexity: 9473000684
-[Thread 27] Handler: FifteenPuzzleHandler, Request: N/A, Methods: 545008992, Blocks: 12400023611, Instructions: 374383507642, Complexity: 71384461618
