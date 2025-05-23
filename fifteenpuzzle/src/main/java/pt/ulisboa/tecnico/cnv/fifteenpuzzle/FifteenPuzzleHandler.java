@@ -135,6 +135,7 @@ public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<Str
     }
 
     private void resultsToTxt(int size, int shuffles) {
+        // TODO: later on, write to DynamoDB instead of to a file
         String line = String.format(
             "Handler: %s, size: %d, shuffles: %d, Instructions: %d\n",
             "FifteenPuzzleHandler",
@@ -143,7 +144,7 @@ public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<Str
             MetricsExtractor.getInstructions()
         );
 
-        try (FileWriter fw = new FileWriter("metrics/metrics.txt", true);
+        try (FileWriter fw = new FileWriter("metrics.txt", true);
             BufferedWriter bw = new BufferedWriter(fw);
             PrintWriter out = new PrintWriter(bw)) {
             out.print(line);

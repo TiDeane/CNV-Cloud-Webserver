@@ -164,6 +164,7 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
     }
 
     private void resultsToTxt(int gridSize, int numBlueAgents, int numRedAgents, char flagPlacementType) {
+        // TODO: later on, write to DynamoDB instead of to a file
         String line = String.format(
             "Handler: %s, gridSize: %d, numBlueAgents: %d, numRedAgents: %d, flagPlacementType: %c, Instructions: %d\n",
             "CaptureTheFlagHandler",
@@ -174,7 +175,7 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
             MetricsExtractor.getInstructions()
         );
 
-        try (FileWriter fw = new FileWriter("metrics/metrics.txt", true);
+        try (FileWriter fw = new FileWriter("metrics.txt", true);
             BufferedWriter bw = new BufferedWriter(fw);
             PrintWriter out = new PrintWriter(bw)) {
             out.print(line);
