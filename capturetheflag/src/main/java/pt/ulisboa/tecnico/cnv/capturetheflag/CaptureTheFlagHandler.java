@@ -8,7 +8,6 @@ import com.sun.net.httpserver.HttpHandler;
 import pt.ulisboa.tecnico.cnv.javassist.tools.MetricsExtractor;
 
 import java.io.BufferedWriter;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
