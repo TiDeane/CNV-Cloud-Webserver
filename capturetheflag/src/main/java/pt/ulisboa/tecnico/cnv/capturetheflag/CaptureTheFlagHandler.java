@@ -165,13 +165,15 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
     private void resultsToTxt(int gridSize, int numBlueAgents, int numRedAgents, char flagPlacementType) {
         // TODO: later on, write to DynamoDB instead of to a file
         String line = String.format(
-            "Handler: %s, gridSize: %d, numBlueAgents: %d, numRedAgents: %d, flagPlacementType: %c, Instructions: %d\n",
+            "Thread: %s, Handler: %s, gridSize: %d, numBlueAgents: %d, numRedAgents: %d, flagPlacementType: %c, Instructions: %d, MemAccesses: %d\n",
+            MetricsExtractor.getThreadId(),
             "CaptureTheFlagHandler",
             gridSize,
             numBlueAgents,
             numRedAgents,
             flagPlacementType,
-            MetricsExtractor.getInstructions()
+            MetricsExtractor.getInstructions(),
+            MetricsExtractor.getTotalMemAccesses()
         );
 
         try (FileWriter fw = new FileWriter("metrics.txt", true);

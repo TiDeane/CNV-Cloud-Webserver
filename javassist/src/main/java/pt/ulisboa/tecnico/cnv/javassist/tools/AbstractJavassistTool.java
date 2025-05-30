@@ -21,6 +21,8 @@ public abstract class AbstractJavassistTool implements ClassFileTransformer {
 
     static class BasicBlock {
 
+        private long memAccesses = 0;
+
         /**
          * Method that contains the basic block.
          */
@@ -68,6 +70,14 @@ public abstract class AbstractJavassistTool implements ClassFileTransformer {
 
         public int getLength() {
             return length;
+        }
+
+        public long getMemAccesses() {
+            return memAccesses;
+        }
+
+        public void setMemAccesses(long accesses) {
+            memAccesses = accesses;
         }
     }
 

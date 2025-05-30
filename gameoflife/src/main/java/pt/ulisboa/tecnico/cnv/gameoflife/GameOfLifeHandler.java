@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
 
+import pt.ulisboa.tecnico.cnv.javassist.tools.ICount;
 import pt.ulisboa.tecnico.cnv.javassist.tools.MetricsExtractor;
 
 import java.io.BufferedWriter;
@@ -78,6 +79,7 @@ public class GameOfLifeHandler implements HttpHandler, RequestHandler<Map<String
             e.printStackTrace();
             return "{ \"error\":\"" + e.getMessage() + "\"}";
         }
+        
     }
 
     /**
@@ -189,6 +191,8 @@ public class GameOfLifeHandler implements HttpHandler, RequestHandler<Map<String
 
         System.out.println("Final State:");
         System.out.println(gol.gridToString());
+
+        ICount.printStatistics();
     }
 
     /**
@@ -229,11 +233,13 @@ public class GameOfLifeHandler implements HttpHandler, RequestHandler<Map<String
     private void resultsToTxt(int iterations, String mapFilename) {
         // TODO: later on, write to DynamoDB instead of to a file
         String line = String.format(
-            "Handler: %s, iterations: %d, mapFilename: %s, Instructions: %d\n",
+            "Thread: %s, Handler: %s, iterations: %d, mapFilename: %s, Instructions: %d, MemAccesses: %d\n",
+            MetricsExtractor.getThreadId(),
             "GameOfLifeHandler",
             iterations,
             mapFilename,
-            MetricsExtractor.getInstructions()
+            MetricsExtractor.getInstructions(),
+            MetricsExtractor.getTotalMemAccesses()
         );
 
         try (FileWriter fw = new FileWriter("metrics.txt", true);
