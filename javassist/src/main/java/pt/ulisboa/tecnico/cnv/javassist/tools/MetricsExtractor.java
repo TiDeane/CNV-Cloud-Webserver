@@ -12,7 +12,6 @@ public class MetricsExtractor extends AbstractJavassistTool {
 
     private static final ThreadLocal<Long> ninsts = ThreadLocal.withInitial(() -> 0L);
     private static final ThreadLocal<Long> totalMemoryAccesses = ThreadLocal.withInitial(() -> 0L);
-    private static final ThreadLocal<Long> blockMemoryAccesses = ThreadLocal.withInitial(() -> 0L);
 
     public MetricsExtractor(List<String> packageNameList, String writeDestination) {
         super(packageNameList, writeDestination);
@@ -35,20 +34,8 @@ public class MetricsExtractor extends AbstractJavassistTool {
         return Thread.currentThread().getId();
     }
 
-    public static void incBlockMemAccesses() {
-        blockMemoryAccesses.set(blockMemoryAccesses.get() + 1);
-    }
-
     public static void incTotalMemAccesses(long block_accesses) {
         totalMemoryAccesses.set(totalMemoryAccesses.get() + block_accesses);
-    }
-
-    public static void resetBlockMemAccessesCounter() {
-        blockMemoryAccesses.set(0L);
-    }
-
-    public static long getBlockMemAccesses() {
-        return blockMemoryAccesses.get();
     }
 
     public static long getTotalMemAccesses() {
@@ -57,7 +44,8 @@ public class MetricsExtractor extends AbstractJavassistTool {
 
 
     public void countBlockMemAccesses(BasicBlock bb) {
-            try {
+        long memAccesses = 0;
+        try {
             CodeAttribute codeAttr = bb.getBehavior().getMethodInfo().getCodeAttribute();
 
             if (codeAttr == null) return;
@@ -93,16 +81,15 @@ public class MetricsExtractor extends AbstractJavassistTool {
                     case Opcode.CASTORE:
                     case Opcode.SALOAD:
                     case Opcode.SASTORE:
-                        incBlockMemAccesses();
+                        memAccesses++;
                         break;
                 }
             }
-            bb.setMemAccesses(getBlockMemAccesses());
-            resetBlockMemAccessesCounter();
-            } catch (Exception e) {
-                e.printStackTrace();
-                return;
-            }    
+            bb.setMemAccesses(memAccesses);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }    
     }
 
 
@@ -121,6 +108,5 @@ public class MetricsExtractor extends AbstractJavassistTool {
         block.behavior.insertAt(block.line, String.format("{ %s.incBasicBlock(%s, %s); %s.incTotalMemAccesses(%dL); }", MetricsExtractor.class.getName(), block.getPosition(), block.getLength(), MetricsExtractor.class.getName(), block.getMemAccesses()));
         // TODO: Later on, try counting memory accesses? Using CodeIterator and opcodes
     }
-
 
 }

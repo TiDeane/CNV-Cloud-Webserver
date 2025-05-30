@@ -1,0 +1,1 @@
+Thread: 27, Handler: FifteenPuzzleHandler, size: 10, shuffles: 120, Instructions: 372142103407, MemAccesses: 22075291596
