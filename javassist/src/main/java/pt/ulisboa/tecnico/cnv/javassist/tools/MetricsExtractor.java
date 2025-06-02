@@ -106,7 +106,6 @@ public class MetricsExtractor extends AbstractJavassistTool {
         super.transform(block);
         countBlockMemAccesses(block);
         block.behavior.insertAt(block.line, String.format("{ %s.incBasicBlock(%s, %s); %s.incTotalMemAccesses(%dL); }", MetricsExtractor.class.getName(), block.getPosition(), block.getLength(), MetricsExtractor.class.getName(), block.getMemAccesses()));
-        // TODO: Later on, try counting memory accesses? Using CodeIterator and opcodes
     }
 
 }
