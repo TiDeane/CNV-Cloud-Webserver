@@ -8,7 +8,7 @@ public class RequestLifecycleManager {
 
     /* Registers a new request in the ongoing requests table */
     public static void registerNewRequest(String args, String requestId, DynamoDBWriter dbWriter) {
-        String instanceId = InstanceMetadata.INSTANCE_ID == null ? "local-instance" : InstanceMetadata.INSTANCE_ID;
+        String instanceId = InstanceMetadata.INSTANCE_ID;
 
         long[] metrics = dbWriter.getRequestMetrics(args);
 
@@ -21,7 +21,7 @@ public class RequestLifecycleManager {
 
     /* Removes a request from the ongoing requests table */
     public static void deregisterRequest(String requestId, DynamoDBWriter dbWriter) {
-        String instanceId = InstanceMetadata.INSTANCE_ID == null ? "local-instance" : InstanceMetadata.INSTANCE_ID;
+        String instanceId = InstanceMetadata.INSTANCE_ID;
 
         dbWriter.deregisterRequest(instanceId, requestId);
     }

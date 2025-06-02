@@ -4,15 +4,14 @@ public class InstanceMetadata {
     public static final String INSTANCE_ID;
 
     static {
-        String instanceId;
+        String instanceId = "local-instance";
 
-        if ("true".equalsIgnoreCase(System.getenv("LOCAL_MODE"))) {
-            instanceId = "local-instance";
-        } else {
+        if (!"true".equalsIgnoreCase(System.getenv("LOCAL_MODE"))) {
             try {
-                instanceId = com.amazonaws.util.EC2MetadataUtils.getInstanceId();
+                String ec2Id = com.amazonaws.util.EC2MetadataUtils.getInstanceId();
+                if (ec2Id != null && !ec2Id.isEmpty()) instanceId = ec2Id;
             } catch (com.amazonaws.AmazonClientException e) {
-                instanceId = "local-instance";
+                // fall back to default instanceId
             }
         }
 
