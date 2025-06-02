@@ -17,7 +17,10 @@ import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.ComparisonOperator;
 import com.amazonaws.services.dynamodbv2.model.Condition;
 import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
+import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
 import com.amazonaws.services.dynamodbv2.model.DescribeTableRequest;
+import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
+import com.amazonaws.services.dynamodbv2.model.GetItemResult;
 import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
 import com.amazonaws.services.dynamodbv2.model.KeyType;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
@@ -38,7 +41,9 @@ public class DynamoDBWriter {
 
     private static AmazonDynamoDB dynamoDB;
 
-    private static String tableName = "CNVRequestMetrics";
+    private static String ongoingRequestsTableName = "CNVOngoingRequests";
+
+    private static String metricsTableName = "CNVRequestMetrics";
 
     public DynamoDBWriter() {
         dynamoDB = AmazonDynamoDBClientBuilder.standard()
@@ -55,16 +60,27 @@ public class DynamoDBWriter {
             .build();
 
         try {
-            // Create a table with a primary hash key named 'args', a list of request arguments
-            CreateTableRequest createTableRequest = new CreateTableRequest().withTableName(tableName)
+            // Create metrics table
+            CreateTableRequest createMetricsTableRequest = new CreateTableRequest().withTableName(metricsTableName)
                 .withKeySchema(new KeySchemaElement().withAttributeName("args").withKeyType(KeyType.HASH))
                 .withAttributeDefinitions(new AttributeDefinition().withAttributeName("args").withAttributeType(ScalarAttributeType.S))
                 .withProvisionedThroughput(new ProvisionedThroughput().withReadCapacityUnits(1L).withWriteCapacityUnits(1L));
 
-            // Create table if it does not exist yet
-            TableUtils.createTableIfNotExists(dynamoDB, createTableRequest);
-            // wait for the table to move into ACTIVE state
-            TableUtils.waitUntilActive(dynamoDB, tableName);
+            TableUtils.createTableIfNotExists(dynamoDB, createMetricsTableRequest);
+
+            // Create ongoing requests table
+            CreateTableRequest createOngoingTableRequest = new CreateTableRequest().withTableName(ongoingRequestsTableName)
+                .withKeySchema(new KeySchemaElement().withAttributeName("instanceId").withKeyType(KeyType.HASH),
+                               new KeySchemaElement().withAttributeName("requestId").withKeyType(KeyType.RANGE))
+                .withAttributeDefinitions(new AttributeDefinition().withAttributeName("instanceId").withAttributeType(ScalarAttributeType.S),
+                                          new AttributeDefinition().withAttributeName("requestId").withAttributeType(ScalarAttributeType.S))
+                .withProvisionedThroughput(new ProvisionedThroughput().withReadCapacityUnits(1L).withWriteCapacityUnits(1L));
+
+            TableUtils.createTableIfNotExists(dynamoDB, createOngoingTableRequest);
+            
+            // Wait for the tables to move into ACTIVE state
+            TableUtils.waitUntilActive(dynamoDB, metricsTableName);
+            TableUtils.waitUntilActive(dynamoDB, ongoingRequestsTableName);
             
         } catch (AmazonServiceException ase) {
             System.out.println("Caught an AmazonServiceException, which means your request made it "
@@ -85,7 +101,8 @@ public class DynamoDBWriter {
         }
     }
 
-    private Map<String, AttributeValue> newItem(String args, String handler, long nInstructions, long nMemAccesses) {
+    /* Creates a new item for the CNVRequestMetrics table */
+    private Map<String, AttributeValue> newMetricsItem(String args, String handler, long nInstructions, long nMemAccesses) {
         Map<String, AttributeValue> item = new HashMap<String, AttributeValue>();
         item.put("args", new AttributeValue(args));
         item.put("handler", new AttributeValue(handler));
@@ -94,9 +111,10 @@ public class DynamoDBWriter {
         return item;
     }
 
+    /* Writes finished request's arguments and execution metrics to the CNVRequestMetrics table */
     public void writeMetrics(String args, String handler, long instructions, long memAccesses) {
         try {
-            dynamoDB.putItem(new PutItemRequest(tableName, newItem(args, handler, instructions, memAccesses)));
+            dynamoDB.putItem(new PutItemRequest(metricsTableName, newMetricsItem(args, handler, instructions, memAccesses)));
         } catch (AmazonServiceException ase) {
             System.out.println("Caught an AmazonServiceException, which means your request made it "
                     + "to AWS, but was rejected with an error response for some reason.");
@@ -110,6 +128,102 @@ public class DynamoDBWriter {
                     + "a serious internal problem while trying to communicate with AWS, "
                     + "such as not being able to access the network.");
             System.out.println("Error Message: " + ace.getMessage());
+        }
+    }
+
+    /* Creates a new item for the CNVOngoingRequests table */
+    private Map<String, AttributeValue> newOngoingItem(String instanceId, String requestId, long nInstructions, long nMemAccesses) {
+        Map<String, AttributeValue> item = new HashMap<String, AttributeValue>();
+        item.put("instanceId", new AttributeValue(instanceId));
+        item.put("requestId", new AttributeValue(requestId));
+        item.put("nInstructions", new AttributeValue().withN(String.valueOf(nInstructions)));
+        item.put("nMemAccesses", new AttributeValue().withN(String.valueOf(nMemAccesses)));
+        return item;
+    }
+
+    /* Writes new request's instanceId, requestId, and (possibly estimated) metrics to the CNVOngoingRequests table */
+    public void registerNewRequest(String instanceId, String requestId, long instructions, long memAccesses) {
+        // Note: "instructions" and "memAccesses" may be estimations!
+        try {
+            dynamoDB.putItem(new PutItemRequest(ongoingRequestsTableName, newOngoingItem(instanceId, requestId, instructions, memAccesses)));
+        } catch (AmazonServiceException ase) {
+            System.out.println("Caught an AmazonServiceException, which means your request made it "
+                    + "to AWS, but was rejected with an error response for some reason.");
+            System.out.println("Error Message:    " + ase.getMessage());
+            System.out.println("HTTP Status Code: " + ase.getStatusCode());
+            System.out.println("AWS Error Code:   " + ase.getErrorCode());
+            System.out.println("Error Type:       " + ase.getErrorType());
+            System.out.println("Request ID:       " + ase.getRequestId());
+        } catch (AmazonClientException ace) {
+            System.out.println("Caught an AmazonClientException, which means the client encountered "
+                    + "a serious internal problem while trying to communicate with AWS, "
+                    + "such as not being able to access the network.");
+            System.out.println("Error Message: " + ace.getMessage());
+        }
+    }
+
+    public void deregisterRequest(String instanceId, String requestId) {
+        Map<String, AttributeValue> key = new HashMap<>();
+        key.put("instanceId", new AttributeValue(instanceId));
+        key.put("requestId", new AttributeValue(requestId));
+
+        try {
+            DeleteItemRequest deleteRequest = new DeleteItemRequest().withTableName(ongoingRequestsTableName).withKey(key);
+
+            dynamoDB.deleteItem(deleteRequest);
+            
+        } catch (AmazonServiceException ase) {
+            System.out.println("Caught an AmazonServiceException, which means your request made it "
+                    + "to AWS, but was rejected with an error response for some reason.");
+            System.out.println("Error Message:    " + ase.getMessage());
+            System.out.println("HTTP Status Code: " + ase.getStatusCode());
+            System.out.println("AWS Error Code:   " + ase.getErrorCode());
+            System.out.println("Error Type:       " + ase.getErrorType());
+            System.out.println("Request ID:       " + ase.getRequestId());
+        } catch (AmazonClientException ace) {
+            System.out.println("Caught an AmazonClientException, which means the client encountered "
+                    + "a serious internal problem while trying to communicate with AWS, "
+                    + "such as not being able to access the network.");
+            System.out.println("Error Message: " + ace.getMessage());
+        }
+    }
+
+    public long[] getRequestMetrics(String args) {
+        try {
+            Map<String, AttributeValue> key = new HashMap<>();
+            key.put("args", new AttributeValue().withS(args));
+
+            GetItemRequest request = new GetItemRequest().withTableName(metricsTableName).withKey(key);
+
+            GetItemResult result = dynamoDB.getItem(request);
+            Map<String, AttributeValue> item = result.getItem();
+
+            if (item == null || item.isEmpty()) {
+                return null;
+            }
+
+            long nInstructions = Long.parseLong(item.get("nInstructions").getN());
+            long nMemAccesses = Long.parseLong(item.get("nMemAccesses").getN());
+
+            return new long[]{nInstructions, nMemAccesses};
+
+        } catch (AmazonServiceException ase) {
+            System.out.println("Caught an AmazonServiceException, which means your request made it "
+                    + "to AWS, but was rejected with an error response for some reason.");
+            System.out.println("Error Message:    " + ase.getMessage());
+            System.out.println("HTTP Status Code: " + ase.getStatusCode());
+            System.out.println("AWS Error Code:   " + ase.getErrorCode());
+            System.out.println("Error Type:       " + ase.getErrorType());
+            System.out.println("Request ID:       " + ase.getRequestId());
+
+            return null;
+        } catch (AmazonClientException ace) {
+            System.out.println("Caught an AmazonClientException, which means the client encountered "
+                    + "a serious internal problem while trying to communicate with AWS, "
+                    + "such as not being able to access the network.");
+            System.out.println("Error Message: " + ace.getMessage());
+
+            return null;
         }
     }
 

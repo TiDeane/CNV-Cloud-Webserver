@@ -34,14 +34,14 @@
             <version>2.17.0</version>
         </dependency>
         <dependency>
-            <groupId>pt.ulisboa.tecnico</groupId>
-            <artifactId>JavassistWrapper</artifactId>
+            <groupId>pt.ulisboa.tecnico.cnv</groupId>
+            <artifactId>dynamodbclient</artifactId>
             <version>1.0</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>pt.ulisboa.tecnico.cnv</groupId>
-            <artifactId>dynamodbclient</artifactId>
+            <artifactId>common</artifactId>
             <version>1.0</version>
             <scope>compile</scope>
         </dependency>

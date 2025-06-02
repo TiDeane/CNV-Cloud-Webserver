@@ -5,7 +5,8 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
-import pt.ulisboa.tecnico.cnv.javassist.tools.MetricsExtractor;
+import pt.ulisboa.tecnico.cnv.common.InstanceMetadata;
+import pt.ulisboa.tecnico.cnv.common.RequestLifecycleManager;
 import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
 import java.io.IOException;
@@ -14,6 +15,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<String, String>, String> {
 
@@ -66,9 +68,18 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
             return;
         }
 
+        String args = String.format("[%d,%d,%d,%c]", gridSize, numRedAgents, numBlueAgents, flagPlacementType);
+
+        String requestId = UUID.randomUUID().toString();
+
+        DynamoDBWriter dbWriter = new DynamoDBWriter();
+
+        RequestLifecycleManager.registerNewRequest(args, requestId, dbWriter);
+
         String response = handleWorkload(gridSize, numBlueAgents, numRedAgents, flagPlacementType);
 
-        storeRequest(gridSize, numBlueAgents, numRedAgents, flagPlacementType);
+        RequestLifecycleManager.storeFinishedRequest(args, "CaptureTheFlagHandler", requestId, dbWriter);
+        RequestLifecycleManager.deregisterRequest(requestId, dbWriter);
 
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
@@ -158,18 +169,6 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
         }
 
         return List.of('A', 'B', 'C').contains(flagPlacementType);
-    }
-
-    private void storeRequest(int gridSize, int numBlueAgents, int numRedAgents, char flagPlacementType) {
-        DynamoDBWriter dbWriter = new DynamoDBWriter();
-
-        String args = "[" + Integer.toString(gridSize) + "," + Integer.toString(numBlueAgents) + "," +
-                            Integer.toString(numRedAgents) + "," + flagPlacementType + "]";
-        String handler = "CaptureTheFlagHandler";
-        long nInstructions = MetricsExtractor.getInstructions();
-        long nMemAccesses = MetricsExtractor.getTotalMemAccesses();
-
-        dbWriter.writeMetrics(args, handler, nInstructions, nMemAccesses);
     }
 
 }

@@ -5,7 +5,8 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
-import pt.ulisboa.tecnico.cnv.javassist.tools.MetricsExtractor;
+import pt.ulisboa.tecnico.cnv.common.InstanceMetadata;
+import pt.ulisboa.tecnico.cnv.common.RequestLifecycleManager;
 import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
 import java.io.IOException;
@@ -15,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 
 public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<String, String>, String> {
 
@@ -64,10 +66,18 @@ public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<Str
 
         int size = Integer.parseInt(parameters.get("size"));
         int shuffles = Integer.parseInt(parameters.get("shuffles"));
+        String args = String.format("[%d,%d]", size, shuffles);
+
+        String requestId = UUID.randomUUID().toString();
+
+        DynamoDBWriter dbWriter = new DynamoDBWriter();
+
+        RequestLifecycleManager.registerNewRequest(args, requestId, dbWriter);
 
         String response = handleWorkload(size, shuffles);
 
-        storeRequest(size, shuffles);
+        RequestLifecycleManager.storeFinishedRequest(args, "FifteenPuzzleHandler", requestId, dbWriter);
+        RequestLifecycleManager.deregisterRequest(requestId, dbWriter);
 
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
@@ -130,17 +140,6 @@ public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<Str
             }
         }
         return result;
-    }
-
-    private void storeRequest(int size, int shuffles) {
-        DynamoDBWriter dbWriter = new DynamoDBWriter();
-
-        String args = "[" + Integer.toString(size) + "," + Integer.toString(shuffles) + "]";
-        String handler = "FifteenPuzzlehandler";
-        long nInstructions = MetricsExtractor.getInstructions();
-        long nMemAccesses = MetricsExtractor.getTotalMemAccesses();
-
-        dbWriter.writeMetrics(args, handler, nInstructions, nMemAccesses);
     }
 
 }

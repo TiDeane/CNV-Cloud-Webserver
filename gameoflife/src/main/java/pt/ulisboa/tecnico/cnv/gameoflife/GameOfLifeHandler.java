@@ -5,7 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
 
-import pt.ulisboa.tecnico.cnv.javassist.tools.MetricsExtractor;
+import pt.ulisboa.tecnico.cnv.common.InstanceMetadata;
+import pt.ulisboa.tecnico.cnv.common.RequestLifecycleManager;
 import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
 import java.io.IOException;
@@ -14,6 +15,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
@@ -115,9 +117,18 @@ public class GameOfLifeHandler implements HttpHandler, RequestHandler<Map<String
             return;
         }
 
+        String args = String.format("[%s,%d]", mapFilename, iterations);
+
+        String requestId = UUID.randomUUID().toString();
+
+        DynamoDBWriter dbWriter = new DynamoDBWriter();
+
+        RequestLifecycleManager.registerNewRequest(args, requestId, dbWriter);
+
         String response = handleWorkload(map, iterations);
 
-        storeRequest(iterations, mapFilename);
+        RequestLifecycleManager.storeFinishedRequest(args, "GameOfLifeHandler", requestId, dbWriter);
+        RequestLifecycleManager.deregisterRequest(requestId, dbWriter);
 
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
@@ -222,17 +233,6 @@ public class GameOfLifeHandler implements HttpHandler, RequestHandler<Map<String
             }
         }
         return result;
-    }
-
-    private void storeRequest(int iterations, String mapFilename) {
-        DynamoDBWriter dbWriter = new DynamoDBWriter();
-
-        String args = "[" + Integer.toString(iterations) + "," + mapFilename + "]";
-        String handler = "GameOfLifeHandler";
-        long nInstructions = MetricsExtractor.getInstructions();
-        long nMemAccesses = MetricsExtractor.getTotalMemAccesses();
-
-        dbWriter.writeMetrics(args, handler, nInstructions, nMemAccesses);
     }
 
 }
