@@ -18,6 +18,7 @@
 		<module>fifteenpuzzle</module>
 		<module>capturetheflag</module>
 		<module>javassist</module>
+		<module>dynamodbclient</module>
 	</modules>
 
 </project>

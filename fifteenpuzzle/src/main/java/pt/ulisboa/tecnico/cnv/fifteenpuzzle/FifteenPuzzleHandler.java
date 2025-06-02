@@ -6,12 +6,10 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
 import pt.ulisboa.tecnico.cnv.javassist.tools.MetricsExtractor;
+import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
@@ -69,7 +67,7 @@ public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<Str
 
         String response = handleWorkload(size, shuffles);
 
-        resultsToTxt(size, shuffles); // later on, write to DynamoDB
+        storeRequest(size, shuffles);
 
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
@@ -134,25 +132,15 @@ public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<Str
         return result;
     }
 
-    private void resultsToTxt(int size, int shuffles) {
-        // TODO: later on, write to DynamoDB instead of to a file
-        String line = String.format(
-            "Thread: %s, Handler: %s, size: %d, shuffles: %d, Instructions: %d, MemAccesses: %d\n",
-            MetricsExtractor.getThreadId(),
-            "FifteenPuzzleHandler",
-            size,
-            shuffles,
-            MetricsExtractor.getInstructions(),
-            MetricsExtractor.getTotalMemAccesses()
-        );
+    private void storeRequest(int size, int shuffles) {
+        DynamoDBWriter dbWriter = new DynamoDBWriter();
 
-        try (FileWriter fw = new FileWriter("metrics.txt", true);
-            BufferedWriter bw = new BufferedWriter(fw);
-            PrintWriter out = new PrintWriter(bw)) {
-            out.print(line);
-        } catch (IOException e) {
-            System.err.println("Error writing metrics: " + e.getMessage());
-        }
+        String args = "[" + Integer.toString(size) + "," + Integer.toString(shuffles) + "]";
+        String handler = "FifteenPuzzlehandler";
+        long nInstructions = MetricsExtractor.getInstructions();
+        long nMemAccesses = MetricsExtractor.getTotalMemAccesses();
+
+        dbWriter.writeMetrics(args, handler, nInstructions, nMemAccesses);
     }
 
 }

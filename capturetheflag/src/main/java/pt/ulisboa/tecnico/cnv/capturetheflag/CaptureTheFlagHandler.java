@@ -6,12 +6,10 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
 import pt.ulisboa.tecnico.cnv.javassist.tools.MetricsExtractor;
+import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
@@ -70,7 +68,7 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
 
         String response = handleWorkload(gridSize, numBlueAgents, numRedAgents, flagPlacementType);
 
-        resultsToTxt(gridSize, numBlueAgents, numRedAgents, flagPlacementType); // later on, write to DynamoDB
+        storeRequest(gridSize, numBlueAgents, numRedAgents, flagPlacementType);
 
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
@@ -162,27 +160,16 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
         return List.of('A', 'B', 'C').contains(flagPlacementType);
     }
 
-    private void resultsToTxt(int gridSize, int numBlueAgents, int numRedAgents, char flagPlacementType) {
-        // TODO: later on, write to DynamoDB instead of to a file
-        String line = String.format(
-            "Thread: %s, Handler: %s, gridSize: %d, numBlueAgents: %d, numRedAgents: %d, flagPlacementType: %c, Instructions: %d, MemAccesses: %d\n",
-            MetricsExtractor.getThreadId(),
-            "CaptureTheFlagHandler",
-            gridSize,
-            numBlueAgents,
-            numRedAgents,
-            flagPlacementType,
-            MetricsExtractor.getInstructions(),
-            MetricsExtractor.getTotalMemAccesses()
-        );
+    private void storeRequest(int gridSize, int numBlueAgents, int numRedAgents, char flagPlacementType) {
+        DynamoDBWriter dbWriter = new DynamoDBWriter();
 
-        try (FileWriter fw = new FileWriter("metrics.txt", true);
-            BufferedWriter bw = new BufferedWriter(fw);
-            PrintWriter out = new PrintWriter(bw)) {
-            out.print(line);
-        } catch (IOException e) {
-            System.err.println("Error writing metrics: " + e.getMessage());
-        }
+        String args = "[" + Integer.toString(gridSize) + "," + Integer.toString(numBlueAgents) + "," +
+                            Integer.toString(numRedAgents) + "," + flagPlacementType + "]";
+        String handler = "CaptureTheFlagHandler";
+        long nInstructions = MetricsExtractor.getInstructions();
+        long nMemAccesses = MetricsExtractor.getTotalMemAccesses();
+
+        dbWriter.writeMetrics(args, handler, nInstructions, nMemAccesses);
     }
 
 }

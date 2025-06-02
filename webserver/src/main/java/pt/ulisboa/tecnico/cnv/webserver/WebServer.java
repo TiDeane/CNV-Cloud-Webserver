@@ -7,8 +7,11 @@ import pt.ulisboa.tecnico.cnv.capturetheflag.CaptureTheFlagHandler;
 import pt.ulisboa.tecnico.cnv.fifteenpuzzle.FifteenPuzzleHandler;
 import pt.ulisboa.tecnico.cnv.gameoflife.GameOfLifeHandler;
 
+import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
+
 public class WebServer {
     public static void main(String[] args) throws Exception {
+        DynamoDBWriter.setup(); // sets up DynamoDB tables
         HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
         server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
         server.createContext("/", new RootHandler());
