@@ -10,6 +10,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
@@ -86,6 +87,7 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
     private String getInstanceIdWithLowestLoad(DynamoDBWriter dbWriter) {
         String destinationId = null;
         double minCost = Double.MAX_VALUE;
+        Map<String, Double> instanceLoads = new HashMap<>();
 
         List<Map<String, AttributeValue>> items = dbWriter.getAllOngoingRequestMetrics();
 
@@ -96,9 +98,13 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
 
             // TODO: how best to aggregate cost?
             double cost = 0.1 * nInst + 0.3 * nMem;
-            if (cost < minCost) {
-                minCost = cost;
-                destinationId = instanceId;
+            instanceLoads.put(instanceId, instanceLoads.getOrDefault(instanceId, 0.0) + cost);
+        }
+
+        for (Map.Entry<String, Double> entry : instanceLoads.entrySet()) {
+            if (entry.getValue() < minCost) {
+                minCost = entry.getValue();
+                destinationId = entry.getKey();
             }
         }
         
