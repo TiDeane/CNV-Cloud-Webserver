@@ -20,6 +20,7 @@
 		<module>javassist</module>
 		<module>dynamodbclient</module>
 		<module>common</module>
+		<module>loadbalancer</module>
 	</modules>
 
 </project>
