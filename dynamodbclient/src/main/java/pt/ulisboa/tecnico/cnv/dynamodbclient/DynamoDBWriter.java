@@ -1,6 +1,8 @@
 package pt.ulisboa.tecnico.cnv.dynamodbclient;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.amazonaws.AmazonClientException;
@@ -162,6 +164,7 @@ public class DynamoDBWriter {
         }
     }
 
+    /* Removes a newly finished request from the ongoing requests table */
     public void deregisterRequest(String instanceId, String requestId) {
         Map<String, AttributeValue> key = new HashMap<>();
         key.put("instanceId", new AttributeValue(instanceId));
@@ -188,6 +191,7 @@ public class DynamoDBWriter {
         }
     }
 
+    /* Returns the metrics for a set of arguments, if a request with the same args has been received before */
     public long[] getRequestMetrics(String args) {
         try {
             Map<String, AttributeValue> key = new HashMap<>();
@@ -207,6 +211,42 @@ public class DynamoDBWriter {
 
             return new long[]{nInstructions, nMemAccesses};
 
+        } catch (AmazonServiceException ase) {
+            System.out.println("Caught an AmazonServiceException, which means your request made it "
+                    + "to AWS, but was rejected with an error response for some reason.");
+            System.out.println("Error Message:    " + ase.getMessage());
+            System.out.println("HTTP Status Code: " + ase.getStatusCode());
+            System.out.println("AWS Error Code:   " + ase.getErrorCode());
+            System.out.println("Error Type:       " + ase.getErrorType());
+            System.out.println("Request ID:       " + ase.getRequestId());
+
+            return null;
+        } catch (AmazonClientException ace) {
+            System.out.println("Caught an AmazonClientException, which means the client encountered "
+                    + "a serious internal problem while trying to communicate with AWS, "
+                    + "such as not being able to access the network.");
+            System.out.println("Error Message: " + ace.getMessage());
+
+            return null;
+        }
+    }
+
+    /* Returns all info on ongoing requests, for usage by the load balancer */
+    public List<Map<String, AttributeValue>> getAllOngoingRequestMetrics() {
+        List<Map<String, AttributeValue>> allItems = new ArrayList<>();
+        Map<String, AttributeValue> lastKey = null;
+        
+        try {
+            do {
+                ScanRequest scanRequest = new ScanRequest().withTableName(ongoingRequestsTableName).withExclusiveStartKey(lastKey);
+
+                ScanResult result = dynamoDB.scan(scanRequest);
+                allItems.addAll(result.getItems());
+                lastKey = result.getLastEvaluatedKey();
+            } while (lastKey != null);
+
+            return allItems;
+            
         } catch (AmazonServiceException ase) {
             System.out.println("Caught an AmazonServiceException, which means your request made it "
                     + "to AWS, but was rejected with an error response for some reason.");
