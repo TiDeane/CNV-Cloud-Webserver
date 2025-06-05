@@ -57,6 +57,7 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
         int numBlueAgents = Integer.parseInt(parameters.get("numBlueAgents"));
         int numRedAgents = Integer.parseInt(parameters.get("numRedAgents"));
         char flagPlacementType = parameters.get("flagPlacementType").toUpperCase().charAt(0);
+        String requestId = parameters.getOrDefault("requestId", "---");
 
         if (!validateInputs(gridSize, numBlueAgents, numRedAgents, flagPlacementType)) {
             String response = "Invalid input. Please provide a valid grid size, number of blue agents, number of red agents and flag placement type (A, B or C).";
@@ -69,16 +70,11 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
 
         String args = String.format("[%d,%d,%d,%c]", gridSize, numRedAgents, numBlueAgents, flagPlacementType);
 
-        String requestId = UUID.randomUUID().toString();
-
         DynamoDBWriter dbWriter = new DynamoDBWriter();
-
-        RequestLifecycleManager.registerNewRequest(args, requestId, dbWriter);
 
         String response = handleWorkload(gridSize, numBlueAgents, numRedAgents, flagPlacementType);
 
         RequestLifecycleManager.storeFinishedRequest(args, "CaptureTheFlagHandler", requestId, dbWriter);
-        RequestLifecycleManager.deregisterRequest(requestId, dbWriter);
 
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();

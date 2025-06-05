@@ -24,11 +24,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-core</artifactId>
-            <version>1.12.695</version>
-        </dependency>
-        <dependency>
             <groupId>pt.ulisboa.tecnico.cnv</groupId>
             <artifactId>JavassistWrapper</artifactId>
             <version>1.0</version>

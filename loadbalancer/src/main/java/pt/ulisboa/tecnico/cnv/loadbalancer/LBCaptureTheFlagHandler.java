@@ -11,6 +11,7 @@ import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.UUID;
 
 import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
@@ -20,11 +21,13 @@ import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.Instance;
 
+import pt.ulisboa.tecnico.cnv.common.RequestLifecycleManager;
 import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
 public class LBCaptureTheFlagHandler implements HttpHandler {
 
-    private final String path = "capturetheflag";
+    private final String HANDLER = "CaptureTheFlagHandler";
+    private final String PATH = "capturetheflag";
     private final String WORKER_PORT = "8000";
 
     private final String AWS_REGION = "eu-west-1";
@@ -43,31 +46,54 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
         // parse request
         URI requestedUri = he.getRequestURI();
         String query = requestedUri.getRawQuery();
+        String requestId = UUID.randomUUID().toString();
+        query += "&requestId=" + requestId;
+
+        String args = RequestLifecycleManager.getArgsVector(query, HANDLER);
 
         DynamoDBWriter dbWriter = new DynamoDBWriter();
+        long[] metrics = dbWriter.getRequestMetrics(args);
+
+        if (metrics == null) {
+            // metrics = [nInsts, nMemAccesses]
+            metrics = RequestLifecycleManager.estimateCost(args);
+        }
+
+        long nInstructions = metrics[0];
+        long nMemAccesses = metrics[1];
+
+        // TODO: if cost below a threshold, invoke a Lambda function
         
         // TODO: keep list of active instances, for cases where there are no ongoing instances
-        
-        // TODO: if estimated cost is low, launch Lambda instances instead of routing to EC2
 
-        // TODO: maybe move RequestLifecycleManager calls to the load balancer?
-
-        boolean handled = false;
         String response = null;
-        String destinationId = getInstanceIdWithLowestLoad(dbWriter);
-        String destinationIp = getEC2InstanceIP(destinationId);
+        
+        if (true) { // TODO: implement complexity threshold for EC2 and Lambda
+            // Redirect to EC2 instance
 
-        while (!handled) {
-            try {
-                response = get(destinationIp, path, query);
-                if (response != null) handled = true;
-            } catch (Exception IOException) {
-                destinationIp = getInstanceIdWithLowestLoad(dbWriter);
+            boolean handled = false;
+            String destinationId = getInstanceIdWithLowestLoad(dbWriter);
+            String destinationIp = getEC2InstanceIP(destinationId);
+
+            while (!handled) {
+                try {
+                    RequestLifecycleManager.registerNewRequest(args, destinationId, requestId, nInstructions, nMemAccesses, dbWriter);
+                    response = get(destinationIp, PATH, query);
+                    if (response != null) handled = true;
+                    else throw new IOException();
+                } catch (Exception e) {
+                    RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
+                    destinationId = getInstanceIdWithLowestLoad(dbWriter);
+                    destinationIp = getEC2InstanceIP(destinationId);
+                }
             }
+
+            RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
+
+        } else { // TODO: implement Lambda logic
+            // Redirect to Lambda
         }
         
-        System.out.println("redirecting query: " + query + " to instance with IP " + destinationIp);
-
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
         os.write(response.getBytes());
@@ -85,7 +111,7 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
 
     /* Returns the IP of the EC2 instance with the lowest load */
     private String getInstanceIdWithLowestLoad(DynamoDBWriter dbWriter) {
-        String destinationId = null;
+        String destinationId = "local-instance";
         double minCost = Double.MAX_VALUE;
         Map<String, Double> instanceLoads = new HashMap<>();
 
@@ -114,7 +140,7 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
     }
 
     private String getEC2InstanceIP(String instanceId) {
-        if (instanceId == null) return "localhost";
+        if (instanceId == "local-instance") return "localhost";
 
         AmazonEC2 ec2 = AmazonEC2ClientBuilder.standard().withRegion(AWS_REGION).withCredentials(new EnvironmentVariableCredentialsProvider()).build();
 

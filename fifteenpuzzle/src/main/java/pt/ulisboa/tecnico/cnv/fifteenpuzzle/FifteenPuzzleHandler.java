@@ -65,18 +65,14 @@ public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<Str
 
         int size = Integer.parseInt(parameters.get("size"));
         int shuffles = Integer.parseInt(parameters.get("shuffles"));
+        String requestId = parameters.getOrDefault("requestId", "---");
         String args = String.format("[%d,%d]", size, shuffles);
 
-        String requestId = UUID.randomUUID().toString();
-
         DynamoDBWriter dbWriter = new DynamoDBWriter();
-
-        RequestLifecycleManager.registerNewRequest(args, requestId, dbWriter);
 
         String response = handleWorkload(size, shuffles);
 
         RequestLifecycleManager.storeFinishedRequest(args, "FifteenPuzzleHandler", requestId, dbWriter);
-        RequestLifecycleManager.deregisterRequest(requestId, dbWriter);
 
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();

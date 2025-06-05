@@ -23,8 +23,11 @@ import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
 import com.amazonaws.services.dynamodbv2.model.DescribeTableRequest;
 import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
 import com.amazonaws.services.dynamodbv2.model.GetItemResult;
+import com.amazonaws.services.dynamodbv2.model.GlobalSecondaryIndex;
 import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
 import com.amazonaws.services.dynamodbv2.model.KeyType;
+import com.amazonaws.services.dynamodbv2.model.Projection;
+import com.amazonaws.services.dynamodbv2.model.ProjectionType;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.PutItemRequest;
 import com.amazonaws.services.dynamodbv2.model.PutItemResult;
@@ -65,7 +68,13 @@ public class DynamoDBWriter {
             // Create metrics table
             CreateTableRequest createMetricsTableRequest = new CreateTableRequest().withTableName(metricsTableName)
                 .withKeySchema(new KeySchemaElement().withAttributeName("args").withKeyType(KeyType.HASH))
-                .withAttributeDefinitions(new AttributeDefinition().withAttributeName("args").withAttributeType(ScalarAttributeType.S))
+                .withAttributeDefinitions(new AttributeDefinition().withAttributeName("args").withAttributeType(ScalarAttributeType.S),
+                                          new AttributeDefinition().withAttributeName("handler").withAttributeType(ScalarAttributeType.S))
+                .withGlobalSecondaryIndexes(new GlobalSecondaryIndex()
+                    .withIndexName("HandlerIndex")
+                    .withKeySchema(new KeySchemaElement("handler", KeyType.HASH))
+                    .withProjection(new Projection().withProjectionType(ProjectionType.ALL))
+                    .withProvisionedThroughput(new ProvisionedThroughput(1L, 1L)))
                 .withProvisionedThroughput(new ProvisionedThroughput().withReadCapacityUnits(1L).withWriteCapacityUnits(1L));
 
             TableUtils.createTableIfNotExists(dynamoDB, createMetricsTableRequest);

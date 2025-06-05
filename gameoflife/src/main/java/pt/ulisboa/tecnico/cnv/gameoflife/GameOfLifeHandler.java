@@ -101,6 +101,7 @@ public class GameOfLifeHandler implements HttpHandler, RequestHandler<Map<String
 
         int iterations = Integer.parseInt(parameters.get("iterations"));
         String mapFilename = parameters.get("mapFilename");
+        String requestId = parameters.getOrDefault("requestId", "---");
 
         int[][] map;
         try (InputStream mapFileInputStream = getClass().getClassLoader().getResourceAsStream(mapFilename)) {
@@ -118,16 +119,11 @@ public class GameOfLifeHandler implements HttpHandler, RequestHandler<Map<String
 
         String args = String.format("[%s,%d]", mapFilename, iterations);
 
-        String requestId = UUID.randomUUID().toString();
-
         DynamoDBWriter dbWriter = new DynamoDBWriter();
-
-        RequestLifecycleManager.registerNewRequest(args, requestId, dbWriter);
 
         String response = handleWorkload(map, iterations);
 
         RequestLifecycleManager.storeFinishedRequest(args, "GameOfLifeHandler", requestId, dbWriter);
-        RequestLifecycleManager.deregisterRequest(requestId, dbWriter);
 
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
