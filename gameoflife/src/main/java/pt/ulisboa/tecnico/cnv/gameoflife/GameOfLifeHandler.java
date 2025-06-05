@@ -119,7 +119,7 @@ public class GameOfLifeHandler implements HttpHandler, RequestHandler<Map<String
 
         String args = String.format("[%s,%d]", mapFilename, iterations);
 
-        DynamoDBWriter dbWriter = new DynamoDBWriter();
+        DynamoDBWriter dbWriter = DynamoDBWriter.getInstance();
 
         String response = handleWorkload(map, iterations);
 

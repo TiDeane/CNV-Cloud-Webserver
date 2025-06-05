@@ -10,18 +10,13 @@ import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 
 public class CostEstimator {
+    
     private DynamoDBWriter dbWriter;
 
     private final int K = 3;
 
-    private static final CostEstimator instance = new CostEstimator();
-
-    private CostEstimator() {
-        dbWriter = new DynamoDBWriter();
-    }
-
-    public static CostEstimator getInstance() {
-        return instance;
+    public CostEstimator() {
+        dbWriter = DynamoDBWriter.getInstance();
     }
 
     /* Uses KNN to estimate metrics for an unseen set of arguments */

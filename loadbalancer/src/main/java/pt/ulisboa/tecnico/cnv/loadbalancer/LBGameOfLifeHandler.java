@@ -51,7 +51,7 @@ public class LBGameOfLifeHandler implements HttpHandler {
 
         String args = RequestLifecycleManager.getArgsVector(query, HANDLER);
         
-        DynamoDBWriter dbWriter = new DynamoDBWriter();
+        DynamoDBWriter dbWriter = DynamoDBWriter.getInstance();
         long[] metrics = dbWriter.getRequestMetrics(args);
 
         if (metrics == null) {

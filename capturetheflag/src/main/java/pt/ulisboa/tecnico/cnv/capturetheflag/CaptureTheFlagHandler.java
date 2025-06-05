@@ -70,7 +70,7 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
 
         String args = String.format("[%d,%d,%d,%c]", gridSize, numRedAgents, numBlueAgents, flagPlacementType);
 
-        DynamoDBWriter dbWriter = new DynamoDBWriter();
+        DynamoDBWriter dbWriter = DynamoDBWriter.getInstance();
 
         String response = handleWorkload(gridSize, numBlueAgents, numRedAgents, flagPlacementType);
 

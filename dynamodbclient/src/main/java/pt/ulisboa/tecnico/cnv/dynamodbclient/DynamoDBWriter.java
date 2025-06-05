@@ -19,11 +19,8 @@ import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
 import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
 import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
 import com.amazonaws.services.dynamodbv2.model.GetItemResult;
-import com.amazonaws.services.dynamodbv2.model.GlobalSecondaryIndex;
 import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
 import com.amazonaws.services.dynamodbv2.model.KeyType;
-import com.amazonaws.services.dynamodbv2.model.Projection;
-import com.amazonaws.services.dynamodbv2.model.ProjectionType;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.PutItemRequest;
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
@@ -37,27 +34,26 @@ import com.amazonaws.services.dynamodbv2.util.TableUtils;
 public class DynamoDBWriter {
 
     private static String AWS_REGION = "eu-west-1";
+    private static String ongoingRequestsTableName = "CNVOngoingRequests";
+    private static String metricsTableName = "CNVRequestMetrics";
 
     private static AmazonDynamoDB dynamoDB;
 
-    private static String ongoingRequestsTableName = "CNVOngoingRequests";
+    private static final DynamoDBWriter instance = new DynamoDBWriter();
 
-    private static String metricsTableName = "CNVRequestMetrics";
-
-    public DynamoDBWriter() {
+    private DynamoDBWriter() {
         dynamoDB = AmazonDynamoDBClientBuilder.standard()
             .withCredentials(new EnvironmentVariableCredentialsProvider())
             .withRegion(AWS_REGION)
             .build();
     }
 
+    public static DynamoDBWriter getInstance() {
+        return instance;
+    }
+
     /* Creates the DynamoDB table if it doesn't exist */
     public static void setup() {
-        dynamoDB = AmazonDynamoDBClientBuilder.standard()
-            .withCredentials(new EnvironmentVariableCredentialsProvider())
-            .withRegion(AWS_REGION)
-            .build();
-
         try {
             // Create metrics table
             CreateTableRequest createMetricsTableRequest = new CreateTableRequest().withTableName(metricsTableName)

@@ -68,7 +68,7 @@ public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<Str
         String requestId = parameters.getOrDefault("requestId", "---");
         String args = String.format("[%d,%d]", size, shuffles);
 
-        DynamoDBWriter dbWriter = new DynamoDBWriter();
+        DynamoDBWriter dbWriter = DynamoDBWriter.getInstance();
 
         String response = handleWorkload(size, shuffles);
 

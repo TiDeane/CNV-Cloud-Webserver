@@ -73,7 +73,7 @@ public class RequestLifecycleManager {
     }
 
     public static long[] estimateCost(String args, String handler) {
-        CostEstimator estimator = CostEstimator.getInstance();
+        CostEstimator estimator = new CostEstimator();
 
         return estimator.estimateMetrics(args, handler);
     }
