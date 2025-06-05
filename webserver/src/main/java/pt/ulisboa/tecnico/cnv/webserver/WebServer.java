@@ -7,6 +7,8 @@ import pt.ulisboa.tecnico.cnv.capturetheflag.CaptureTheFlagHandler;
 import pt.ulisboa.tecnico.cnv.fifteenpuzzle.FifteenPuzzleHandler;
 import pt.ulisboa.tecnico.cnv.gameoflife.GameOfLifeHandler;
 
+import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
+
 public class WebServer {
     public static void main(String[] args) throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);

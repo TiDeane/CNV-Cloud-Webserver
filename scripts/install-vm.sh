@@ -22,9 +22,6 @@ scp -o StrictHostKeyChecking=no -i $AWS_EC2_SSH_KEYPAR_PATH \
     $DIR/../javassist/target/JavassistWrapper-1.0-jar-with-dependencies.jar \
     ec2-user@$(cat instance.dns):javassist-agent.jar
 
-# Create metrics.txt file (for testing - later on, write to DynamoDB instead of to a file)
-ssh -o StrictHostKeyChecking=no -i $AWS_EC2_SSH_KEYPAR_PATH ec2-user@$(cat instance.dns) "touch metrics.txt"
-
 
 # Setup rc-local.service
 cmd="echo \"[Unit]

@@ -5,18 +5,17 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
-import pt.ulisboa.tecnico.cnv.javassist.tools.MetricsExtractor;
+import pt.ulisboa.tecnico.cnv.common.RequestLifecycleManager;
+import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 
 public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<String, String>, String> {
 
@@ -66,10 +65,14 @@ public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<Str
 
         int size = Integer.parseInt(parameters.get("size"));
         int shuffles = Integer.parseInt(parameters.get("shuffles"));
+        String requestId = parameters.getOrDefault("requestId", "---");
+        String args = String.format("[%d,%d]", size, shuffles);
+
+        DynamoDBWriter dbWriter = DynamoDBWriter.getInstance();
 
         String response = handleWorkload(size, shuffles);
 
-        resultsToTxt(size, shuffles); // later on, write to DynamoDB
+        RequestLifecycleManager.storeFinishedRequest(args, "FifteenPuzzleHandler", requestId, dbWriter);
 
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
@@ -132,27 +135,6 @@ public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<Str
             }
         }
         return result;
-    }
-
-    private void resultsToTxt(int size, int shuffles) {
-        // TODO: later on, write to DynamoDB instead of to a file
-        String line = String.format(
-            "Thread: %s, Handler: %s, size: %d, shuffles: %d, Instructions: %d, MemAccesses: %d\n",
-            MetricsExtractor.getThreadId(),
-            "FifteenPuzzleHandler",
-            size,
-            shuffles,
-            MetricsExtractor.getInstructions(),
-            MetricsExtractor.getTotalMemAccesses()
-        );
-
-        try (FileWriter fw = new FileWriter("metrics.txt", true);
-            BufferedWriter bw = new BufferedWriter(fw);
-            PrintWriter out = new PrintWriter(bw)) {
-            out.print(line);
-        } catch (IOException e) {
-            System.err.println("Error writing metrics: " + e.getMessage());
-        }
     }
 
 }

@@ -5,17 +5,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
 
-import pt.ulisboa.tecnico.cnv.javassist.tools.MetricsExtractor;
+import pt.ulisboa.tecnico.cnv.common.RequestLifecycleManager;
+import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
@@ -102,6 +101,7 @@ public class GameOfLifeHandler implements HttpHandler, RequestHandler<Map<String
 
         int iterations = Integer.parseInt(parameters.get("iterations"));
         String mapFilename = parameters.get("mapFilename");
+        String requestId = parameters.getOrDefault("requestId", "---");
 
         int[][] map;
         try (InputStream mapFileInputStream = getClass().getClassLoader().getResourceAsStream(mapFilename)) {
@@ -117,9 +117,13 @@ public class GameOfLifeHandler implements HttpHandler, RequestHandler<Map<String
             return;
         }
 
+        String args = String.format("[%s,%d]", mapFilename, iterations);
+
+        DynamoDBWriter dbWriter = DynamoDBWriter.getInstance();
+
         String response = handleWorkload(map, iterations);
 
-        resultsToTxt(iterations, mapFilename); // later on, write to DynamoDB
+        RequestLifecycleManager.storeFinishedRequest(args, "GameOfLifeHandler", requestId, dbWriter);
 
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
@@ -224,27 +228,6 @@ public class GameOfLifeHandler implements HttpHandler, RequestHandler<Map<String
             }
         }
         return result;
-    }
-
-    private void resultsToTxt(int iterations, String mapFilename) {
-        // TODO: later on, write to DynamoDB instead of to a file
-        String line = String.format(
-            "Thread: %s, Handler: %s, iterations: %d, mapFilename: %s, Instructions: %d, MemAccesses: %d\n",
-            MetricsExtractor.getThreadId(),
-            "GameOfLifeHandler",
-            iterations,
-            mapFilename,
-            MetricsExtractor.getInstructions(),
-            MetricsExtractor.getTotalMemAccesses()
-        );
-
-        try (FileWriter fw = new FileWriter("metrics.txt", true);
-            BufferedWriter bw = new BufferedWriter(fw);
-            PrintWriter out = new PrintWriter(bw)) {
-            out.print(line);
-        } catch (IOException e) {
-            System.err.println("Error writing metrics: " + e.getMessage());
-        }
     }
 
 }

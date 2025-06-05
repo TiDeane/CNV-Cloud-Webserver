@@ -5,17 +5,16 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
-import pt.ulisboa.tecnico.cnv.javassist.tools.MetricsExtractor;
+import pt.ulisboa.tecnico.cnv.common.RequestLifecycleManager;
+import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<String, String>, String> {
 
@@ -58,6 +57,7 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
         int numBlueAgents = Integer.parseInt(parameters.get("numBlueAgents"));
         int numRedAgents = Integer.parseInt(parameters.get("numRedAgents"));
         char flagPlacementType = parameters.get("flagPlacementType").toUpperCase().charAt(0);
+        String requestId = parameters.getOrDefault("requestId", "---");
 
         if (!validateInputs(gridSize, numBlueAgents, numRedAgents, flagPlacementType)) {
             String response = "Invalid input. Please provide a valid grid size, number of blue agents, number of red agents and flag placement type (A, B or C).";
@@ -68,9 +68,13 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
             return;
         }
 
+        String args = String.format("[%d,%d,%d,%c]", gridSize, numRedAgents, numBlueAgents, flagPlacementType);
+
+        DynamoDBWriter dbWriter = DynamoDBWriter.getInstance();
+
         String response = handleWorkload(gridSize, numBlueAgents, numRedAgents, flagPlacementType);
 
-        resultsToTxt(gridSize, numBlueAgents, numRedAgents, flagPlacementType); // later on, write to DynamoDB
+        RequestLifecycleManager.storeFinishedRequest(args, "CaptureTheFlagHandler", requestId, dbWriter);
 
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
@@ -160,29 +164,6 @@ public class CaptureTheFlagHandler implements HttpHandler, RequestHandler<Map<St
         }
 
         return List.of('A', 'B', 'C').contains(flagPlacementType);
-    }
-
-    private void resultsToTxt(int gridSize, int numBlueAgents, int numRedAgents, char flagPlacementType) {
-        // TODO: later on, write to DynamoDB instead of to a file
-        String line = String.format(
-            "Thread: %s, Handler: %s, gridSize: %d, numBlueAgents: %d, numRedAgents: %d, flagPlacementType: %c, Instructions: %d, MemAccesses: %d\n",
-            MetricsExtractor.getThreadId(),
-            "CaptureTheFlagHandler",
-            gridSize,
-            numBlueAgents,
-            numRedAgents,
-            flagPlacementType,
-            MetricsExtractor.getInstructions(),
-            MetricsExtractor.getTotalMemAccesses()
-        );
-
-        try (FileWriter fw = new FileWriter("metrics.txt", true);
-            BufferedWriter bw = new BufferedWriter(fw);
-            PrintWriter out = new PrintWriter(bw)) {
-            out.print(line);
-        } catch (IOException e) {
-            System.err.println("Error writing metrics: " + e.getMessage());
-        }
     }
 
 }
