@@ -56,7 +56,7 @@ public class LBGameOfLifeHandler implements HttpHandler {
 
         if (metrics == null) {
             // metrics = [nInsts, nMemAccesses]
-            metrics = RequestLifecycleManager.estimateCost(args);
+            metrics = RequestLifecycleManager.estimateCost(args, HANDLER);
         }
 
         long nInstructions = metrics[0];

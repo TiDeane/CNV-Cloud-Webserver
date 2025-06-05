@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.cnv.dynamodbclient;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,10 +9,6 @@ import java.util.Map;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
@@ -20,7 +17,6 @@ import com.amazonaws.services.dynamodbv2.model.ComparisonOperator;
 import com.amazonaws.services.dynamodbv2.model.Condition;
 import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
 import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
-import com.amazonaws.services.dynamodbv2.model.DescribeTableRequest;
 import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
 import com.amazonaws.services.dynamodbv2.model.GetItemResult;
 import com.amazonaws.services.dynamodbv2.model.GlobalSecondaryIndex;
@@ -30,11 +26,9 @@ import com.amazonaws.services.dynamodbv2.model.Projection;
 import com.amazonaws.services.dynamodbv2.model.ProjectionType;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.PutItemRequest;
-import com.amazonaws.services.dynamodbv2.model.PutItemResult;
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import com.amazonaws.services.dynamodbv2.model.ScanRequest;
 import com.amazonaws.services.dynamodbv2.model.ScanResult;
-import com.amazonaws.services.dynamodbv2.model.TableDescription;
 import com.amazonaws.services.dynamodbv2.util.TableUtils;
 
 /**
@@ -68,13 +62,7 @@ public class DynamoDBWriter {
             // Create metrics table
             CreateTableRequest createMetricsTableRequest = new CreateTableRequest().withTableName(metricsTableName)
                 .withKeySchema(new KeySchemaElement().withAttributeName("args").withKeyType(KeyType.HASH))
-                .withAttributeDefinitions(new AttributeDefinition().withAttributeName("args").withAttributeType(ScalarAttributeType.S),
-                                          new AttributeDefinition().withAttributeName("handler").withAttributeType(ScalarAttributeType.S))
-                .withGlobalSecondaryIndexes(new GlobalSecondaryIndex()
-                    .withIndexName("HandlerIndex")
-                    .withKeySchema(new KeySchemaElement("handler", KeyType.HASH))
-                    .withProjection(new Projection().withProjectionType(ProjectionType.ALL))
-                    .withProvisionedThroughput(new ProvisionedThroughput(1L, 1L)))
+                .withAttributeDefinitions(new AttributeDefinition().withAttributeName("args").withAttributeType(ScalarAttributeType.S))
                 .withProvisionedThroughput(new ProvisionedThroughput().withReadCapacityUnits(1L).withWriteCapacityUnits(1L));
 
             TableUtils.createTableIfNotExists(dynamoDB, createMetricsTableRequest);
@@ -273,6 +261,41 @@ public class DynamoDBWriter {
             System.out.println("Error Message: " + ace.getMessage());
 
             return null;
+        }
+    }
+
+    public List<Map<String, AttributeValue>> getHandlerRequestMetrics(String handler) {
+            Map<String, AttributeValue> expressionAttributeValues = new HashMap<>();
+            expressionAttributeValues.put(":h", new AttributeValue().withS(handler));
+
+            HashMap<String, Condition> scanFilter = new HashMap<String, Condition>();
+            Condition condition = new Condition()
+                .withComparisonOperator(ComparisonOperator.EQ.toString())
+                .withAttributeValueList(new AttributeValue().withS(handler));
+            scanFilter.put("handler", condition);
+
+        try {
+            ScanRequest scanRequest = new ScanRequest(metricsTableName).withScanFilter(scanFilter);
+            ScanResult scanResult = dynamoDB.scan(scanRequest);
+            return scanResult.getItems();
+
+        } catch (AmazonServiceException ase) {
+            System.out.println("Caught an AmazonServiceException, which means your request made it "
+                    + "to AWS, but was rejected with an error response for some reason.");
+            System.out.println("Error Message:    " + ase.getMessage());
+            System.out.println("HTTP Status Code: " + ase.getStatusCode());
+            System.out.println("AWS Error Code:   " + ase.getErrorCode());
+            System.out.println("Error Type:       " + ase.getErrorType());
+            System.out.println("Request ID:       " + ase.getRequestId());
+
+            return Collections.emptyList();
+        } catch (AmazonClientException ace) {
+            System.out.println("Caught an AmazonClientException, which means the client encountered "
+                    + "a serious internal problem while trying to communicate with AWS, "
+                    + "such as not being able to access the network.");
+            System.out.println("Error Message: " + ace.getMessage());
+
+            return Collections.emptyList();
         }
     }
 

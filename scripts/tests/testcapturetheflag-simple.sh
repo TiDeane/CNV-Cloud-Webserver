@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Syntax:  ./testcapturetheflag-simple.sh <ip> <port> <grid-size> <num-blue-agents> <num-red-agents> <flag-placement-type>
-# Example: ./testcapturetheflag-simple.sh 127.0.0.1 8000 20 5 5 A
+# Example: ./testcapturetheflag-simple.sh 127.0.0.1 8001 20 5 5 A
 HOST=$1
 PORT=$2
 gridSize=$3

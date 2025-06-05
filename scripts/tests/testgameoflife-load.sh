@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Syntax:  ./testgameoflife-load.sh <ip> <port> <map-filename> <iterations>
-# Example: ./testgameoflife-load.sh 127.0.0.1 8000 glider-10-10.json 10
+# Example: ./testgameoflife-load.sh 127.0.0.1 8001 glider-10-10.json 10
 HOST=$1
 PORT=$2
 mapFilename=$3
