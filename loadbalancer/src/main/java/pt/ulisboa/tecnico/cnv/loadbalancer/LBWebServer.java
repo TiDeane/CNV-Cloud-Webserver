@@ -10,9 +10,13 @@ import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
 public class LBWebServer {
     public static void main(String[] args) throws Exception {
-        DynamoDBWriter.setup(); // sets up DynamoDB tables
-        startAutoScalerScheduler(); // starts up auto scaling
+        DynamoDBWriter.setup();          // Set up DynamoDB tables
+        startAutoScalerScheduler();      // Start auto scaling scheduler
+        startHttpServer();               // Start load balancer HTTP server
+        addShutdownHook();               // Attach graceful shutdown hook
+    }
 
+    private static void startHttpServer() throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress(8001), 0);
         server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
         server.createContext("/", new LBRootHandler());
@@ -20,18 +24,6 @@ public class LBWebServer {
         server.createContext("/fifteenpuzzle", new LBFifteenPuzzleHandler());
         server.createContext("/capturetheflag", new LBCaptureTheFlagHandler());
         server.start();
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("Shutdown detected. Terminating all active EC2 instances...");
-
-            try {
-                AutoScaler.getInstance().terminateAllInstances();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            System.out.println("Cleanup complete.");
-        }));
     }
 
     private static void startAutoScalerScheduler() {
@@ -45,5 +37,20 @@ public class LBWebServer {
                 e.printStackTrace();
             }
         }, 0, 30, TimeUnit.SECONDS); // call auto scaler every 30 seconds
+    }
+
+    private static void addShutdownHook() {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("Shutdown detected.  Terminating all active EC2 instances...");
+
+            try {
+                AutoScaler.getInstance().terminateAllInstances();
+            } catch (Exception e) {
+                System.err.println("Shutdown cleanup failed:");
+                e.printStackTrace();
+            }
+
+            System.out.println("Cleanup complete.");
+        }));
     }
 }
