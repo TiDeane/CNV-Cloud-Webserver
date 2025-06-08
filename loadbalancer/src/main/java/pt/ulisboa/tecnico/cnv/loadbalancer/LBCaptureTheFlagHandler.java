@@ -8,13 +8,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
 import java.util.UUID;
 
 import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
-import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
@@ -63,8 +59,6 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
         long nMemAccesses = metrics[1];
 
         // TODO: if cost below a threshold, invoke a Lambda function
-        
-        // TODO: keep list of active instances, for cases where there are no ongoing instances
 
         String response = null;
         
@@ -79,7 +73,7 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
                 try {
                     RequestLifecycleManager.registerNewRequest(args, destinationId, requestId, nInstructions, nMemAccesses, dbWriter);
                     response = get(destinationIp, PATH, query);
-                    if (response != null) handled = true;
+                    if (response != null && !response.isEmpty()) handled = true;
                     else throw new IOException();
                 } catch (Exception e) {
                     RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
@@ -111,32 +105,7 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
 
     /* Returns the IP of the EC2 instance with the lowest load */
     private String getInstanceIdWithLowestLoad(DynamoDBWriter dbWriter) {
-        String destinationId = "local-instance";
-        double minCost = Double.MAX_VALUE;
-        Map<String, Double> instanceLoads = new HashMap<>();
-
-        List<Map<String, AttributeValue>> items = dbWriter.getAllOngoingRequestMetrics();
-
-        for (Map<String, AttributeValue> item : items) {
-            String instanceId = item.get("instanceId").getS();
-            long nInst = Long.parseLong(item.get("nInstructions").getN());
-            long nMem = Long.parseLong(item.get("nMemAccesses").getN());
-
-            // TODO: how best to aggregate cost?
-            double cost = 0.1 * nInst + 0.3 * nMem;
-            instanceLoads.put(instanceId, instanceLoads.getOrDefault(instanceId, 0.0) + cost);
-        }
-
-        for (Map.Entry<String, Double> entry : instanceLoads.entrySet()) {
-            if (entry.getValue() < minCost) {
-                minCost = entry.getValue();
-                destinationId = entry.getKey();
-            }
-        }
-        
-        // TODO: if there are no ongoing requests, return a random running instance's ID
-
-        return destinationId;
+        return AutoScaler.getInstance().getInstanceIdWithLowestLoad();
     }
 
     private String getEC2InstanceIP(String instanceId) {

@@ -23,6 +23,8 @@ import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
 import com.amazonaws.services.dynamodbv2.model.KeyType;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.PutItemRequest;
+import com.amazonaws.services.dynamodbv2.model.QueryRequest;
+import com.amazonaws.services.dynamodbv2.model.QueryResult;
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import com.amazonaws.services.dynamodbv2.model.ScanRequest;
 import com.amazonaws.services.dynamodbv2.model.ScanResult;
@@ -261,14 +263,14 @@ public class DynamoDBWriter {
     }
 
     public List<Map<String, AttributeValue>> getHandlerRequestMetrics(String handler) {
-            Map<String, AttributeValue> expressionAttributeValues = new HashMap<>();
-            expressionAttributeValues.put(":h", new AttributeValue().withS(handler));
+        Map<String, AttributeValue> expressionAttributeValues = new HashMap<>();
+        expressionAttributeValues.put(":h", new AttributeValue().withS(handler));
 
-            HashMap<String, Condition> scanFilter = new HashMap<String, Condition>();
-            Condition condition = new Condition()
-                .withComparisonOperator(ComparisonOperator.EQ.toString())
-                .withAttributeValueList(new AttributeValue().withS(handler));
-            scanFilter.put("handler", condition);
+        HashMap<String, Condition> scanFilter = new HashMap<String, Condition>();
+        Condition condition = new Condition()
+            .withComparisonOperator(ComparisonOperator.EQ.toString())
+            .withAttributeValueList(new AttributeValue().withS(handler));
+        scanFilter.put("handler", condition);
 
         try {
             ScanRequest scanRequest = new ScanRequest(metricsTableName).withScanFilter(scanFilter);
@@ -292,6 +294,40 @@ public class DynamoDBWriter {
             System.out.println("Error Message: " + ace.getMessage());
 
             return Collections.emptyList();
+        }
+    }
+
+    public boolean isInstanceIdle(String instanceId) {
+        Map<String, AttributeValue> expressionAttributeValues = new HashMap<>();
+        expressionAttributeValues.put(":id", new AttributeValue().withS(instanceId));
+
+        try {
+            QueryRequest queryRequest = new QueryRequest()
+                .withTableName(ongoingRequestsTableName)
+                .withKeyConditionExpression("instanceId = :id")
+                .withExpressionAttributeValues(expressionAttributeValues)
+                .withLimit(1); // Check if *any* entry exists
+
+            QueryResult result = dynamoDB.query(queryRequest);
+
+            return result.getCount() == 0;
+        } catch (AmazonServiceException ase) {
+            System.out.println("Caught an AmazonServiceException, which means your request made it "
+                    + "to AWS, but was rejected with an error response for some reason.");
+            System.out.println("Error Message:    " + ase.getMessage());
+            System.out.println("HTTP Status Code: " + ase.getStatusCode());
+            System.out.println("AWS Error Code:   " + ase.getErrorCode());
+            System.out.println("Error Type:       " + ase.getErrorType());
+            System.out.println("Request ID:       " + ase.getRequestId());
+
+            return false;
+        } catch (AmazonClientException ace) {
+            System.out.println("Caught an AmazonClientException, which means the client encountered "
+                    + "a serious internal problem while trying to communicate with AWS, "
+                    + "such as not being able to access the network.");
+            System.out.println("Error Message: " + ace.getMessage());
+
+            return false;
         }
     }
 

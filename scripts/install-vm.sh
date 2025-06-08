@@ -2,8 +2,6 @@
 
 source config.sh
 
-cd ../javassist/
-mvn clean package # not sure if packaging javassist separately is necessary
 cd ..
 mvn clean package
 cd scripts/
@@ -22,6 +20,10 @@ scp -o StrictHostKeyChecking=no -i $AWS_EC2_SSH_KEYPAR_PATH \
     $DIR/../javassist/target/JavassistWrapper-1.0-jar-with-dependencies.jar \
     ec2-user@$(cat instance.dns):javassist-agent.jar
 
+# Copy personal config.sh
+scp -o StrictHostKeyChecking=no -i $AWS_EC2_SSH_KEYPAR_PATH \
+    $DIR/config.sh \
+    ec2-user@$(cat instance.dns):config.sh
 
 # Setup rc-local.service
 cmd="echo \"[Unit]
@@ -44,9 +46,12 @@ ssh -o StrictHostKeyChecking=no -i $AWS_EC2_SSH_KEYPAR_PATH ec2-user@$(cat insta
 # Setup web server to start on instance launch.
 cmd="echo \"#!/bin/bash
 cd /home/ec2-user
+source config.sh
 java -cp /home/ec2-user/webserver.jar \\
     -Xbootclasspath/a:/home/ec2-user/javassist-agent.jar \\
     -javaagent:/home/ec2-user/webserver.jar=MetricsExtractor:pt.ulisboa.tecnico.cnv.capturetheflag,pt.ulisboa.tecnico.cnv.fifteenpuzzle,pt.ulisboa.tecnico.cnv.gameoflife:output \\
     pt.ulisboa.tecnico.cnv.webserver.WebServer &
 exit 0\" | sudo tee /etc/rc.local && sudo chmod +x /etc/rc.local"
 ssh -o StrictHostKeyChecking=no -i $AWS_EC2_SSH_KEYPAR_PATH ec2-user@$(cat instance.dns) "$cmd"
+
+java -cp /home/ec2-user/webserver.jar -Xbootclasspath/a:/home/ec2-user/javassist-agent.jar -javaagent:/home/ec2-user/webserver.jar=MetricsExtractor:pt.ulisboa.tecnico.cnv.capturetheflag,pt.ulisboa.tecnico.cnv.fifteenpuzzle,pt.ulisboa.tecnico.cnv.gameoflife:output pt.ulisboa.tecnico.cnv.webserver.WebServer

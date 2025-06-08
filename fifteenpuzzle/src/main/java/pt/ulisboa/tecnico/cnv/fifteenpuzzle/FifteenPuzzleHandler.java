@@ -15,7 +15,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.UUID;
 
 public class FifteenPuzzleHandler implements HttpHandler, RequestHandler<Map<String, String>, String> {
 
