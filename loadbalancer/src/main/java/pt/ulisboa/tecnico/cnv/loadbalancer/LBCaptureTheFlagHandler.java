@@ -10,6 +10,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.UUID;
 
@@ -21,6 +22,16 @@ import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.Instance;
 
+import com.amazonaws.services.lambda.AWSLambda;
+import com.amazonaws.services.lambda.AWSLambdaClientBuilder;
+import com.amazonaws.services.lambda.model.InvokeRequest;
+import com.amazonaws.services.lambda.model.InvokeResult;
+
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import pt.ulisboa.tecnico.cnv.common.RequestLifecycleManager;
 import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
@@ -29,8 +40,14 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
     private final String HANDLER = "CaptureTheFlagHandler";
     private final String PATH = "capturetheflag";
     private final String WORKER_PORT = "8000";
+    private final String LAMBDA_NAME = "capturetheflag-lambda";
 
     private final String AWS_REGION = "eu-west-1";
+
+    private static final double ALPHA = -1.4726764102867243e-6;
+    private static final double BETA = 6.223594986449469e-5;
+    private static final double INTERCEPT = 206.2278774369248;
+    private static final double THRESHOLD = 4100.0;
 
     @Override
     public void handle(HttpExchange he) throws IOException {
@@ -61,16 +78,16 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
 
         long nInstructions = metrics[0];
         long nMemAccesses = metrics[1];
-
-        // TODO: if cost below a threshold, invoke a Lambda function
         
         // TODO: keep list of active instances, for cases where there are no ongoing instances
 
         String response = null;
+        boolean useLambda = redirectToLambda(nInstructions, nMemAccesses);
         
-        if (true) { // TODO: implement complexity threshold for EC2 and Lambda
+        
+        if (!useLambda) { // TODO: implement complexity threshold for EC2 and Lambda
             // Redirect to EC2 instance
-
+            System.out.println("Using EC2 instance for capturetheflag");
             boolean handled = false;
             String destinationId = getInstanceIdWithLowestLoad(dbWriter);
             String destinationIp = getEC2InstanceIP(destinationId);
@@ -90,8 +107,20 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
 
             RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
 
-        } else { // TODO: implement Lambda logic
-            // Redirect to Lambda
+        } else {
+            Map<String, String> req = queryToMap(query);
+            AWSLambda client = AWSLambdaClientBuilder.standard().withRegion(AWS_REGION).build();
+            String json = "{\"gridSize\":\"" + req.get("gridSize") +"\", \"numBlueAgents\":\"" + req.get("numBlueAgents") + "\", \"numRedAgents\":\"" + req.get("numRedAgents") + "\", \"flagPlacementType\":\"" + req.get("flagPlacementType") + "\"}";
+            InvokeRequest request = new InvokeRequest().withFunctionName(LAMBDA_NAME).withLogType("Tail").withPayload(ByteBuffer.wrap(json.getBytes(StandardCharsets.UTF_8)));
+            InvokeResult res = client.invoke(request);
+            response = new String(res.getPayload().array(), StandardCharsets.UTF_8);
+            
+            /*String logResult = res.getLogResult();
+            String decodedLogs = new String(Base64.getDecoder().decode(logResult), StandardCharsets.UTF_8);
+            Pattern pattern = Pattern.compile("Billed Duration:\\s*(\\d+)\\s*ms");
+            Matcher matcher = pattern.matcher(decodedLogs);
+            if (matcher.find()) 
+                System.out.println("[" + req.get("gridSize") + "," + req.get("numBlueAgents") + "," + req.get("numRedAgents") + "]" + "--" + matcher.group(1) + "ms");*/
         }
         
         he.sendResponseHeaders(200, response.length());
@@ -155,4 +184,24 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
         return "localhost";
     }
 
+    private static Map<String, String> queryToMap(String query) {
+        if (query == null) {
+            return null;
+        }
+        Map<String, String> result = new HashMap<>();
+        for (String param : query.split("&")) {
+            String[] entry = param.split("=");
+            if (entry.length > 1) {
+                result.put(entry[0], entry[1]);
+            } else {
+                result.put(entry[0], "");
+            }
+        }
+        return result;
+    }
+
+    private boolean redirectToLambda(long nInstructions, long nMemAccesses) {
+        double execTime = ALPHA * nInstructions + BETA * nMemAccesses + INTERCEPT;
+        return execTime < THRESHOLD;
+    }
 }
