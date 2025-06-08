@@ -21,6 +21,7 @@
 		<module>dynamodbclient</module>
 		<module>common</module>
 		<module>loadbalancer</module>
+		<module>autoscaler</module>
 	</modules>
 
 </project>
