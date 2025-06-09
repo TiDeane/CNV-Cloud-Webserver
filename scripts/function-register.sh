@@ -17,10 +17,10 @@ sleep 5
 
 aws lambda create-function \
 	--function-name capturetheflag-lambda \
-	--zip-file fileb://../capturetheflag/target/capturetheflag-1.0.0-SNAPSHOT-jar-with-dependencies.jar \
+	--zip-file fileb://$DIR/../capturetheflag/target/capturetheflag-1.0.0-SNAPSHOT-jar-with-dependencies.jar \
 	--handler pt.ulisboa.tecnico.cnv.capturetheflag.CaptureTheFlagHandler \
 	--runtime java11 \
-	--timeout 5 \
+	--timeout 10 \
 	--memory-size 256 \
 	--role arn:aws:iam::$AWS_ACCOUNT_ID:role/lambda-role
 
@@ -28,10 +28,10 @@ sleep 5
 
 aws lambda create-function \
 	--function-name fifteenpuzzle-lambda \
-	--zip-file fileb://../fifteenpuzzle/target/fifteenpuzzle-1.0.0-SNAPSHOT-jar-with-dependencies.jar \
+	--zip-file fileb://$DIR/../fifteenpuzzle/target/fifteenpuzzle-1.0.0-SNAPSHOT-jar-with-dependencies.jar \
 	--handler pt.ulisboa.tecnico.cnv.fifteenpuzzle.FifteenPuzzleHandler \
 	--runtime java11 \
-	--timeout 5 \
+	--timeout 10 \
 	--memory-size 256 \
 	--role arn:aws:iam::$AWS_ACCOUNT_ID:role/lambda-role
 
@@ -39,10 +39,10 @@ sleep 5
 
 aws lambda create-function \
 	--function-name gameoflife-lambda \
-	--zip-file fileb://../gameoflife/target/gameoflife-1.0.0-SNAPSHOT-jar-with-dependencies.jar \
+	--zip-file fileb://$DIR/../gameoflife/target/gameoflife-1.0.0-SNAPSHOT-jar-with-dependencies.jar \
 	--handler pt.ulisboa.tecnico.cnv.gameoflife.GameOfLifeHandler \
 	--runtime java11 \
-	--timeout 5 \
+	--timeout 10 \
 	--memory-size 256 \
 	--role arn:aws:iam::$AWS_ACCOUNT_ID:role/lambda-role
 

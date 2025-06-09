@@ -46,6 +46,9 @@ public class AutoScaler {
     private static int COOLDOWN_PERIOD = 300;            // 5 minutes cooldown period
     private static long OBS_TIME = 1000 * 60 * 5;        // 5 minutes cloudwatch observation period
 
+    private static final double ALPHA = -1.4726764102867243e-6;
+    private static final double BETA = 6.223594986449469e-5;
+    private static final double INTERCEPT = 206.2278774369248;
 
     private static String AWS_REGION = "eu-west-1";
     private static String AMI_ID = "ami-0dc0accdfb741c964";        // replace with webserver AMI
@@ -70,6 +73,8 @@ public class AutoScaler {
     }
 
     public void evaluateAndScale() {
+        System.out.println("---------- New auto scaling cycle (30s) ----------");
+
         for (String instanceId :  waitingForDeletionInstanceIds) {
             terminateInstanceIfIdle(instanceId);
         }
@@ -82,12 +87,13 @@ public class AutoScaler {
         
         if (now - lastScalingEvent < COOLDOWN_PERIOD) {
             // less than 5 minutes since last scaling event
-            System.out.println("AutoScaler still cooling down...");
+            long secondsRemaining = COOLDOWN_PERIOD - (now - lastScalingEvent);
+            System.out.println("AS: AutoScaler still cooling down (" + secondsRemaining + "s left)...");
             return;
         }
 
         double averageCpu = getAverageCpuUtilization();
-        System.out.printf("Average CPU Utilization: %.2f%%\n", averageCpu);
+        System.out.printf("AS: Average CPU Utilization: %.2f%%\n", averageCpu);
 
         if (currentCapacity < minimumCapacity) { // auto scaler is just starting up
             lastScalingEvent = Instant.now().getEpochSecond();
@@ -99,7 +105,7 @@ public class AutoScaler {
             lastScalingEvent = Instant.now().getEpochSecond();
             scaleDown();
         } else {
-            System.out.println("No scaling action needed.");
+            System.out.println("AS: No scaling action needed.");
         }
     }
 
@@ -118,17 +124,20 @@ public class AutoScaler {
                 .withStatistics("Average")
                 .withDimensions(instanceDimension)
                 .withEndTime(new Date());
-            
-            System.out.println("Received this many datapoints: " + cloudWatch.getMetricStatistics(request).getDatapoints().size());
-
+                        
             for (Datapoint dp : cloudWatch.getMetricStatistics(request).getDatapoints()) {
-                System.out.println("CPU utilization for instance " + instanceId + " = " + dp.getAverage());
+                System.out.println("AS: CPU utilization for instance " + instanceId + " = " + dp.getAverage());
                 totalCpu += dp.getAverage();
                 count++;
             }
         }
 
-        return count == 0 ? 0.0 : totalCpu / count;
+        if (count == 0) {
+            System.out.println("AS: no datapoints were found, defaulting to 50%");
+            return 50.0;
+        } else {
+            return totalCpu / count;
+        }
     }
 
     private void scaleUp() {
@@ -145,7 +154,7 @@ public class AutoScaler {
         turningOnInstanceIds.add(newInstanceId);
         currentCapacity++;
 
-        System.out.println("Scaled up: launching instance " + newInstanceId);
+        System.out.println("SCALE UP EVENT: launching instance " + newInstanceId);
     }
 
     private void scaleDown() {
@@ -154,17 +163,17 @@ public class AutoScaler {
         currentCapacity--;
 
         if (terminateInstanceIfIdle(instanceToRemove)) {
-            System.out.println("Scaled down: terminated instance " + instanceToRemove);
+            System.out.println("SCALE DOWN EVENT: terminated instance " + instanceToRemove);
         } else {
             // mark for deletion
             waitingForDeletionInstanceIds.add(instanceToRemove);
-            System.out.println("Scaled down: marked instance " + instanceToRemove + "for deletion");
+            System.out.println("SCALE DOWN EVENT: marked instance " + instanceToRemove + " for deletion");
         }
     }
 
     private boolean terminateInstanceIfIdle(String instanceId) {
         if (dbWriter.isInstanceIdle(instanceId)) {
-            System.out.println("Terminated idle instance: " + instanceId);
+            System.out.println("AS: Terminated idle instance: " + instanceId);
             TerminateInstancesRequest termInstanceReq = new TerminateInstancesRequest();
             termInstanceReq.withInstanceIds(instanceId);
             ec2.terminateInstances(termInstanceReq);
@@ -176,13 +185,12 @@ public class AutoScaler {
 
     private void addInstanceToListIfRunning(String instanceId) {
         try {
-            // Get instance info
             DescribeInstancesRequest request = new DescribeInstancesRequest().withInstanceIds(instanceId);
             DescribeInstancesResult response = ec2.describeInstances(request);
 
             List<Reservation> reservations = response.getReservations();
             if (reservations.isEmpty() || reservations.get(0).getInstances().isEmpty()) {
-                System.out.println("Instance not found: " + instanceId);
+                System.out.println("AS: Instance not found: " + instanceId);
                 return;
             }
 
@@ -195,9 +203,9 @@ public class AutoScaler {
                 turningOnInstanceIds.remove(instanceId);
                 activeInstanceIds.add(instanceId);
 
-                System.out.println("Instance " + instanceId + " is running and accepting requests. Added to activeInstanceIds.");
+                System.out.println("AS: Instance " + instanceId + " is running and accepting requests. Added to activeInstanceIds.");
             } catch (IOException e) {
-                System.out.println("Instance " + instanceId + " is not accepting connections on port 8000.");
+                System.out.println("AS: Instance " + instanceId + " is still not accepting connections on port 8000.");
             }
 
         } catch (Exception e) {
@@ -216,7 +224,7 @@ public class AutoScaler {
         Map<String, Double> instanceLoads = new HashMap<>();
 
         if (activeInstanceIds.isEmpty()) {
-            System.out.println("No active instances, wait for the auto scaler...");
+            System.out.println("AS: No active instances, wait for the auto scaler...");
             return null;
         }
 
@@ -236,7 +244,7 @@ public class AutoScaler {
             long nInst = Long.parseLong(item.get("nInstructions").getN());
             long nMem = Long.parseLong(item.get("nMemAccesses").getN());
 
-            double cost = 0.1 * nInst + 3.0 * nMem; // TODO: determine weights with linear regression
+            double cost = ALPHA * nInst + BETA * nMem + INTERCEPT;
             instanceLoads.put(instanceId, instanceLoads.getOrDefault(instanceId, 0.0) + cost);
         }
 

@@ -54,12 +54,6 @@
             <artifactId>aws-java-sdk-lambda</artifactId>
             <version>1.12.785</version>
         </dependency>
-        <dependency>
-            <groupId>pt.ulisboa.tecnico.cnv</groupId>
-            <artifactId>autoscaler</artifactId>
-            <version>1.0</version>
-            <scope>compile</scope>
-        </dependency>
     </dependencies>
 
     <build>

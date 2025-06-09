@@ -11,6 +11,9 @@ import java.net.http.HttpResponse;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.Base64;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2;
@@ -77,12 +80,14 @@ public class LBFifteenPuzzleHandler implements HttpHandler {
         String response = null;
         boolean useLambda = redirectToLambda(nInstructions, nMemAccesses);
 
-        if (!useLambda) { // TODO: implement complexity threshold for EC2 and Lambda
+        if (!useLambda) {
             // Redirect to EC2 instance
-            System.out.println("Using EC2 instance for fifteenpuzzle");
             boolean handled = false;
             String destinationId = getInstanceIdWithLowestLoad(dbWriter);
+            // TODO: handle case where getInstanceIdWithLowestLoad returns null (if no instances are running)
             String destinationIp = getEC2InstanceIP(destinationId);
+
+            System.out.println("LB: FifteenPuzzle request was sent to EC2 instance " + destinationId);
 
             while (!handled) {
                 try {
@@ -100,6 +105,8 @@ public class LBFifteenPuzzleHandler implements HttpHandler {
             RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
 
         } else {
+            System.out.println("LB: FifteenPuzzle request was sent to lambda");
+            
             Map<String, String> req = queryToMap(query);
             AWSLambda client = AWSLambdaClientBuilder.standard().withRegion(AWS_REGION).build();
             String json = "{\"shuffles\":\"" + req.get("shuffles") +"\", \"size\":\"" + req.get("size") + "\"}";
@@ -107,12 +114,14 @@ public class LBFifteenPuzzleHandler implements HttpHandler {
             InvokeResult res = client.invoke(request);
             response = new String(res.getPayload().array(), StandardCharsets.UTF_8);
 
-            /*String logResult = res.getLogResult();
+            /*
+            String logResult = res.getLogResult();
             String decodedLogs = new String(Base64.getDecoder().decode(logResult), StandardCharsets.UTF_8);
             Pattern pattern = Pattern.compile("Billed Duration:\\s*(\\d+)\\s*ms");
             Matcher matcher = pattern.matcher(decodedLogs);
             if (matcher.find()) 
-                System.out.println("[" + req.get("shuffles") + "," + req.get("size") + "]" + "--" + matcher.group(1) + "ms");*/
+                System.out.println("[" + req.get("shuffles") + "," + req.get("size") + "]" + "--" + matcher.group(1) + "ms");
+            */
         }
         
         he.sendResponseHeaders(200, response.length());
