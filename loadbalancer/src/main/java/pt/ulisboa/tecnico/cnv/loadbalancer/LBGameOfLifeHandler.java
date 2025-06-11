@@ -11,9 +11,6 @@ import java.net.http.HttpResponse;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.UUID;
-import java.util.Base64;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 
 import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2;
@@ -22,30 +19,21 @@ import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.Instance;
 
-import com.amazonaws.services.lambda.AWSLambda;
-import com.amazonaws.services.lambda.AWSLambdaClientBuilder;
-import com.amazonaws.services.lambda.model.InvokeRequest;
-import com.amazonaws.services.lambda.model.InvokeResult;
-
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-
 import pt.ulisboa.tecnico.cnv.common.RequestLifecycleManager;
 import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
 public class LBGameOfLifeHandler implements HttpHandler {
 
-    private final String HANDLER = "GameOfLifeHandler";
-    private final String PATH = "gameoflife";
-    private final String WORKER_PORT = "8000";
-    private final String LAMBDA_NAME = "gameoflife-lambda";
+    private static LambdaInstance lambdaInstance;
 
-    private final String AWS_REGION = "eu-west-1";
+    public LBGameOfLifeHandler() {
+        super();
+    }
 
-    private static final double ALPHA = -1.4726764102867243e-6;
-    private static final double BETA = 6.223594986449469e-5;
-    private static final double INTERCEPT = 206.2278774369248;
-    private static final double THRESHOLD = 4100.0;
+    public LBGameOfLifeHandler(LambdaInstance li) {
+        lambdaInstance = li;
+        lambdaInstance.registerLambdaFunction(Constants.GOL_JAR_PATH, String.format(Constants.GOL_PATH + "." + Constants.GOL_HANDLER), Constants.GOL_HANDLER);
+    }
 
     @Override
     public void handle(HttpExchange he) throws IOException {
@@ -64,14 +52,14 @@ public class LBGameOfLifeHandler implements HttpHandler {
         String requestId = UUID.randomUUID().toString();
         query += "&requestId=" + requestId;
 
-        String args = RequestLifecycleManager.getArgsVector(query, HANDLER);
+        String args = RequestLifecycleManager.getArgsVector(query, Constants.GOL_HANDLER);
         
         DynamoDBWriter dbWriter = DynamoDBWriter.getInstance();
         long[] metrics = dbWriter.getRequestMetrics(args);
 
         if (metrics == null) {
             // metrics = [nInsts, nMemAccesses]
-            metrics = RequestLifecycleManager.estimateCost(args, HANDLER);
+            metrics = RequestLifecycleManager.estimateCost(args, Constants.GOL_HANDLER);
         }
 
         long nInstructions = metrics[0];
@@ -79,51 +67,60 @@ public class LBGameOfLifeHandler implements HttpHandler {
 
         String response = null;
         boolean useLambda = redirectToLambda(nInstructions, nMemAccesses);
+        useLambda = true;
 
-        if (!useLambda) {
+        boolean completeRequest = false;
+        int retries = 0;
 
-            boolean handled = false;
-            String destinationId = getInstanceIdWithLowestLoad(dbWriter);
-            // TODO: handle case where getInstanceIdWithLowestLoad returns null (if no instances are running)
-            String destinationIp = getEC2InstanceIP(destinationId);
+        while(!completeRequest) {
+            if (!useLambda || retries == Constants.RETRIES) {
+                boolean handled = false;
+                String destinationId = getInstanceIdWithLowestLoad(dbWriter);
+                // TODO: handle case where getInstanceIdWithLowestLoad returns null (if no instances are running)
+                String destinationIp = getEC2InstanceIP(destinationId);
 
-            System.out.println("LB: GameOfLife request was sent to EC2 instance " + destinationId);
+                System.out.println("LB: GameOfLife request was sent to EC2 instance " + destinationId);
 
-            while (!handled) {
-                try {
-                    RequestLifecycleManager.registerNewRequest(args, destinationId, requestId, nInstructions, nMemAccesses, dbWriter);
-                    response = get(destinationIp, PATH, query);
-                    if (response != null && !response.isEmpty()) handled = true;
-                    else throw new IOException();
-                } catch (Exception e) {
-                    RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
-                    destinationId = getInstanceIdWithLowestLoad(dbWriter);
-                    destinationIp = getEC2InstanceIP(destinationId);
+                while (!handled) {
+                    try {
+                        RequestLifecycleManager.registerNewRequest(args, destinationId, requestId, nInstructions, nMemAccesses, dbWriter);
+                        response = get(destinationIp, Constants.GOL_PATH, query);
+                        if (response != null && !response.isEmpty()) handled = true;
+                        else throw new IOException();
+                    } catch (Exception e) {
+                        RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
+                        destinationId = getInstanceIdWithLowestLoad(dbWriter);
+                        destinationIp = getEC2InstanceIP(destinationId);
+                    }
                 }
+
+                RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
+                completeRequest = true;
+            } else {
+                System.out.println("Try " + retries + ": GameOfLife request was sent to Lambda");
+                Map<String, String> req = queryToMap(query);
+                String json = "{\"mapFilename\":\"" + req.get("mapFilename") +"\", \"iterations\":\"" + req.get("iterations") + "\"}";
+                try {
+                    response = lambdaInstance.lambdaRequest(json, Constants.GOL_HANDLER);
+                    if (response != null) {
+                        completeRequest = true;
+                    } else {
+                        retries += 1;
+                    }
+                } catch (Exception e) {
+                    retries += 1;
+                }               
+                
+                /*
+                String logResult = res.getLogResult();
+                String decodedLogs = new String(Base64.getDecoder().decode(logResult), StandardCharsets.UTF_8);
+                Pattern pattern = Pattern.compile("Billed Duration:\\s*(\\d+)\\s*ms");
+                Matcher matcher = pattern.matcher(decodedLogs);
+                if (matcher.find()) 
+                    System.out.println("[" + req.get("iterations") + "]" + "--" + matcher.group(1) + "ms");   
+                */ 
             }
-
-            RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
-
-        } else {
-            System.out.println("LB: GameOfLife request was sent to Lambda");
-
-            Map<String, String> req = queryToMap(query);
-            AWSLambda client = AWSLambdaClientBuilder.standard().withRegion(AWS_REGION).build();
-            String json = "{\"mapFilename\":\"" + req.get("mapFilename") +"\", \"iterations\":\"" + req.get("iterations") + "\"}";
-            InvokeRequest request = new InvokeRequest().withFunctionName(LAMBDA_NAME).withLogType("Tail").withPayload(ByteBuffer.wrap(json.getBytes(StandardCharsets.UTF_8)));
-            InvokeResult res = client.invoke(request);
-            response = new String(res.getPayload().array(), StandardCharsets.UTF_8);
-            
-            /*
-            String logResult = res.getLogResult();
-            String decodedLogs = new String(Base64.getDecoder().decode(logResult), StandardCharsets.UTF_8);
-            Pattern pattern = Pattern.compile("Billed Duration:\\s*(\\d+)\\s*ms");
-            Matcher matcher = pattern.matcher(decodedLogs);
-            if (matcher.find()) 
-                System.out.println("[" + req.get("iterations") + "]" + "--" + matcher.group(1) + "ms");   
-            */ 
         }
-        
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
         os.write(response.getBytes());
@@ -133,7 +130,7 @@ public class LBGameOfLifeHandler implements HttpHandler {
     private String get(String ip, String path, String query) throws Exception {
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create("http://" + ip + ":" + WORKER_PORT + "/" + path + "?" + query))
+            .uri(URI.create("http://" + ip + ":" + Constants.WORKER_PORT + "/" + path + "?" + query))
             .GET()
             .build();
         return client.send(request, HttpResponse.BodyHandlers.ofString()).body();
@@ -147,7 +144,7 @@ public class LBGameOfLifeHandler implements HttpHandler {
     private String getEC2InstanceIP(String instanceId) {
         if (instanceId == "local-instance") return "localhost";
 
-        AmazonEC2 ec2 = AmazonEC2ClientBuilder.standard().withRegion(AWS_REGION).withCredentials(new EnvironmentVariableCredentialsProvider()).build();
+        AmazonEC2 ec2 = AmazonEC2ClientBuilder.standard().withRegion(Constants.AWS_REGION).withCredentials(new EnvironmentVariableCredentialsProvider()).build();
 
         DescribeInstancesRequest request = new DescribeInstancesRequest().withInstanceIds(instanceId);
 
@@ -177,7 +174,7 @@ public class LBGameOfLifeHandler implements HttpHandler {
     }
 
     private boolean redirectToLambda(long nInstructions, long nMemAccesses) {
-        double execTime = ALPHA * nInstructions + BETA * nMemAccesses + INTERCEPT;
-        return execTime < THRESHOLD;
+        double execTime = Constants.ALPHA * nInstructions + Constants.BETA * nMemAccesses + Constants.INTERCEPT;
+        return execTime < Constants.THRESHOLD;
     }
 }

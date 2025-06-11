@@ -41,8 +41,8 @@ public class AutoScaler {
     private static int minimumCapacity = 1;
     private static int maximumCapacity = 2;
 
-    private static double SCALE_UP_THRESHOLD = 70.0;     // Average CPU > 70% → scale up
-    private static double SCALE_DOWN_THRESHOLD = 20.0;   // Average CPU < 20% → scale down
+    private static double SCALE_UP_THRESHOLD = 30.0;     // Average CPU > 30% → scale up
+    private static double SCALE_DOWN_THRESHOLD = 10.0;   // Average CPU < 10% → scale down
     private static int COOLDOWN_PERIOD = 300;            // 5 minutes cooldown period
     private static long OBS_TIME = 1000 * 60 * 5;        // 5 minutes cloudwatch observation period
 
@@ -51,10 +51,10 @@ public class AutoScaler {
     private static final double INTERCEPT = 206.2278774369248;
 
     private static String AWS_REGION = "eu-west-1";
-    private static String AMI_ID = "ami-0dc0accdfb741c964";        // replace with webserver AMI
+    private static String AMI_ID = "ami-0d524889aa6fb6816";        // replace with webserver AMI
     private static String INSTANCE_TYPE = "t2.micro";
-    private static String KEY_NAME = "eu-west-1-keypair";          // replace with your keypair
-    private static String SEC_GROUP_ID = "sg-0b1ed456f41ca73b2";   // replace with your security group
+    private static String KEY_NAME = "homePair";          // replace with your keypair
+    private static String SEC_GROUP_ID = "sg-0c19d38b02f780dea";   // replace with your security group
 
     private static final AutoScaler instance = new AutoScaler();
 

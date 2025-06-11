@@ -8,6 +8,8 @@ import java.util.concurrent.TimeUnit;
 import com.sun.net.httpserver.HttpServer;
 import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
+
+
 public class LBWebServer {
     public static void main(String[] args) throws Exception {
         DynamoDBWriter.setup();          // Set up DynamoDB tables
@@ -17,12 +19,13 @@ public class LBWebServer {
     }
 
     private static void startHttpServer() throws Exception {
+        LambdaInstance lambdaInstance = new LambdaInstance();
         HttpServer server = HttpServer.create(new InetSocketAddress(8001), 0);
         server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
         server.createContext("/", new LBRootHandler());
-        server.createContext("/gameoflife", new LBGameOfLifeHandler());
-        server.createContext("/fifteenpuzzle", new LBFifteenPuzzleHandler());
-        server.createContext("/capturetheflag", new LBCaptureTheFlagHandler());
+        server.createContext("/gameoflife", new LBGameOfLifeHandler(lambdaInstance));
+        server.createContext("/fifteenpuzzle", new LBFifteenPuzzleHandler(lambdaInstance));
+        server.createContext("/capturetheflag", new LBCaptureTheFlagHandler(lambdaInstance));
         server.start();
     }
 
@@ -45,6 +48,7 @@ public class LBWebServer {
 
             try {
                 AutoScaler.getInstance().terminateAllInstances();
+                LambdaInstance.deregisterLambdaFunctions();
             } catch (Exception e) {
                 System.err.println("Shutdown cleanup failed:");
                 e.printStackTrace();
