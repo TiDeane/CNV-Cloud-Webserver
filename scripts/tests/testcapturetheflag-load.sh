@@ -10,7 +10,7 @@ numBlueAgents=$5
 flagPlacementType=$6
 
 function test_batch_requests {
-	REQUESTS=3
+	REQUESTS=4
 	CONNECTIONS=1
 	ab -n $REQUESTS -c $CONNECTIONS http://$HOST:$PORT/capturetheflag\?gridSize=$gridSize\&numBlueAgents=$numBlueAgents\&numRedAgents=$numRedAgents\&flagPlacementType=$flagPlacementType
 }

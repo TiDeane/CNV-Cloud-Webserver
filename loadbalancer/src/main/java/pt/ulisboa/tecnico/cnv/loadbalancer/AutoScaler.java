@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -61,9 +62,9 @@ public class AutoScaler {
     private AutoScaler() {
         cloudWatch = AmazonCloudWatchClientBuilder.standard().withRegion(AWS_REGION).withCredentials(new EnvironmentVariableCredentialsProvider()).build();
         ec2 = AmazonEC2ClientBuilder.standard().withRegion(AWS_REGION).withCredentials(new EnvironmentVariableCredentialsProvider()).build();
-        this.activeInstanceIds = new HashSet<>();
-        this.turningOnInstanceIds = new HashSet<>();
-        this.waitingForDeletionInstanceIds = new HashSet<>();
+        this.activeInstanceIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        this.turningOnInstanceIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        this.waitingForDeletionInstanceIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
         this.currentCapacity = 0;
         this.dbWriter = DynamoDBWriter.getInstance();
     }
@@ -75,12 +76,19 @@ public class AutoScaler {
     public void evaluateAndScale() {
         System.out.println("---------- New auto scaling cycle (30s) ----------");
 
-        for (String instanceId :  waitingForDeletionInstanceIds) {
+        /* Terminates idle instances marked for termination */
+        for (String instanceId :  new HashSet<>(waitingForDeletionInstanceIds)) {
             terminateInstanceIfIdle(instanceId);
         }
 
-        for (String instanceId : turningOnInstanceIds) {
-            addInstanceToListIfRunning(instanceId);
+        /* Removes from activeInstanceIds any instance that was terminated unexpectedly */
+        for (String instanceId : new HashSet<>(activeInstanceIds)) {
+            checkInstanceActivity(instanceId);
+        }
+
+        /* Adds to activeInstanceIds any instance that was turning on */
+        for (String instanceId : new HashSet<>(turningOnInstanceIds)) {
+            checkInstanceActivity(instanceId);
         }
 
         long now = Instant.now().getEpochSecond();
@@ -174,17 +182,19 @@ public class AutoScaler {
     private boolean terminateInstanceIfIdle(String instanceId) {
         if (dbWriter.isInstanceIdle(instanceId)) {
             System.out.println("AS: Terminated idle instance: " + instanceId);
-            TerminateInstancesRequest termInstanceReq = new TerminateInstancesRequest();
-            termInstanceReq.withInstanceIds(instanceId);
-            ec2.terminateInstances(termInstanceReq);
+            TerminateInstancesRequest terminateInstanceRequest = new TerminateInstancesRequest();
+            terminateInstanceRequest.withInstanceIds(instanceId);
+            ec2.terminateInstances(terminateInstanceRequest);
+            waitingForDeletionInstanceIds.remove(instanceId);
 
             return true;
         }
         return false;
     }
 
-    private void addInstanceToListIfRunning(String instanceId) {
-        try {
+    /* Manages active instances. This function is called every AutoScaler cycle, and by the Load Balancer when requests fail */
+    public void checkInstanceActivity(String instanceId) {
+         try {
             DescribeInstancesRequest request = new DescribeInstancesRequest().withInstanceIds(instanceId);
             DescribeInstancesResult response = ec2.describeInstances(request);
 
@@ -196,16 +206,36 @@ public class AutoScaler {
 
             String publicIp = reservations.get(0).getInstances().get(0).getPublicIpAddress();
 
+            if (publicIp == null || publicIp.isBlank()) {
+                if (activeInstanceIds.remove(instanceId)) {
+                    currentCapacity--;
+                    System.out.println("AS: Instance " + instanceId + " is no longer active and accepting connections on port 8000.");
+                    return;
+                } else {
+                    System.out.println("AS: Instance " + instanceId + " is still not accepting connections on port 8000.");
+                    return;
+                }
+            }
+
             // Check if port 8000 is open
             try (Socket socket = new Socket()) {
                 SocketAddress address = new InetSocketAddress(publicIp, 8000);
                 socket.connect(address, 2000); // timeout: 2 seconds
+
+                if (turningOnInstanceIds.contains(instanceId)) {
+                    System.out.println("AS: Instance " + instanceId + " is running and accepting requests. Added to activeInstanceIds.");
+                }
+
                 turningOnInstanceIds.remove(instanceId);
                 activeInstanceIds.add(instanceId);
 
-                System.out.println("AS: Instance " + instanceId + " is running and accepting requests. Added to activeInstanceIds.");
             } catch (IOException e) {
-                System.out.println("AS: Instance " + instanceId + " is still not accepting connections on port 8000.");
+                if (activeInstanceIds.remove(instanceId)) {
+                    currentCapacity--;
+                    System.out.println("AS: Instance " + instanceId + " is no longer active and accepting connections on port 8000.");
+                } else {
+                    System.out.println("AS: Instance " + instanceId + " is still not accepting connections on port 8000.");
+                }
             }
 
         } catch (Exception e) {

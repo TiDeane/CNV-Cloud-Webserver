@@ -83,37 +83,33 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
         
         if (!handled) { // wasn't handled by Lambda
             // Redirect to EC2 instance
-            String destinationId = getInstanceIdWithLowestLoad(dbWriter);
-
-            // Wait for there to be active instances
-            while (destinationId == null) {
-                try {
-                    System.out.println("LB: request " + requestId + ": no active instances, wait for the auto scaler...");
-                    Thread.sleep(15000); // AutoScaler cycle occurs every 30 seconds
-                    destinationId = getInstanceIdWithLowestLoad(dbWriter);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-            
+            String destinationId = getDestinationId(dbWriter, requestId);
             String destinationIp = getEC2InstanceIP(destinationId);
 
             System.out.println("LB: CaptureTheFlag request " + requestId + " was sent to EC2 instance " + destinationId);
 
             while (!handled) {
                 try {
+                    Constants.activeRequests.put(requestId, destinationId);
                     RequestLifecycleManager.registerNewRequest(args, destinationId, requestId, nInstructions, nMemAccesses, dbWriter);
+
                     response = get(destinationIp, Constants.CTF_PATH, query);
                     if (response != null && !response.isEmpty()) handled = true;
                     else throw new IOException();
                 } catch (Exception e) {
                     RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
-                    destinationId = getInstanceIdWithLowestLoad(dbWriter);
+                    Constants.activeRequests.remove(requestId, destinationId);
+
+                    AutoScaler.getInstance().checkInstanceActivity(destinationId);
+
+                    destinationId = getDestinationId(dbWriter, requestId);
                     destinationIp = getEC2InstanceIP(destinationId);
+                    System.out.println("Request " + requestId + " failed, sending again to instance " + destinationId);
                 }
             }
 
             RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
+            Constants.activeRequests.remove(requestId, destinationId);
         }
 
         he.sendResponseHeaders(200, response.length());
@@ -131,9 +127,27 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
         return client.send(request, HttpResponse.BodyHandlers.ofString()).body();
     }
 
-    /* Returns the IP of the EC2 instance with the lowest load */
+    /* Returns the ID of the EC2 instance with the lowest load */
     private String getInstanceIdWithLowestLoad(DynamoDBWriter dbWriter) {
         return AutoScaler.getInstance().getInstanceIdWithLowestLoad();
+    }
+
+    /* Returns the ID of the instance with the lowest load (waits for active instances) */
+    private String getDestinationId(DynamoDBWriter dbWriter, String requestId) {
+        String destinationId = getInstanceIdWithLowestLoad(dbWriter);
+
+        // Wait for there to be active instances
+        while (destinationId == null) {
+            try {
+                System.out.println("LB: request " + requestId + ": no active instances, wait for the auto scaler...");
+                Thread.sleep(15000); // AutoScaler cycle occurs every 30 seconds, we wait 15
+                destinationId = getInstanceIdWithLowestLoad(dbWriter);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return destinationId;
     }
 
     private String getEC2InstanceIP(String instanceId) {

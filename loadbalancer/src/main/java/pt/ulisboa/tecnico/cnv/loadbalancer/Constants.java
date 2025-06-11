@@ -1,5 +1,8 @@
 package pt.ulisboa.tecnico.cnv.loadbalancer;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
 public final class Constants {
     //Number of retries for Lambda Requests
     public static final Integer RETRIES = 3;
@@ -27,5 +30,6 @@ public final class Constants {
     //Capture The Flag LBHandler specific constants
     public static final String CTF_HANDLER = "CaptureTheFlagHandler";
     public static final String CTF_PATH = "capturetheflag";
-        
+    
+    public static final ConcurrentMap<String, String> activeRequests = new ConcurrentHashMap<>();
 }

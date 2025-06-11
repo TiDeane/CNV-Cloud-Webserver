@@ -8,7 +8,7 @@ size=$3
 shuffles=$4
 
 function test_batch_requests {
-	REQUESTS=3
+	REQUESTS=4
 	CONNECTIONS=1
 	ab -n $REQUESTS -c $CONNECTIONS http://$HOST:$PORT/fifteenpuzzle\?size=$size\&shuffles=$shuffles
 }
