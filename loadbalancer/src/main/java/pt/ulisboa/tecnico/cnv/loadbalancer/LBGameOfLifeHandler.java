@@ -24,6 +24,7 @@ import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
 public class LBGameOfLifeHandler implements HttpHandler {
 
+
     private static LambdaInstance lambdaInstance;
 
     public LBGameOfLifeHandler() {
@@ -67,7 +68,6 @@ public class LBGameOfLifeHandler implements HttpHandler {
 
         String response = null;
         boolean useLambda = redirectToLambda(nInstructions, nMemAccesses);
-        useLambda = true;
 
         boolean completeRequest = false;
         int retries = 0;

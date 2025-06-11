@@ -67,7 +67,6 @@ public class LBFifteenPuzzleHandler implements HttpHandler {
 
         String response = null;
         boolean useLambda = redirectToLambda(nInstructions, nMemAccesses);
-        useLambda = true;
 
         boolean completeRequest = false;
         int retries = 0;

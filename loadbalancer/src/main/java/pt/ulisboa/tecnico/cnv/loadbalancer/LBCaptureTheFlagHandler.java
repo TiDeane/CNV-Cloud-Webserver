@@ -67,7 +67,6 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
 
         String response = null;
         boolean useLambda = redirectToLambda(nInstructions, nMemAccesses);
-        useLambda = true;
 
         boolean completeRequest = false;
         int retries = 0;
@@ -153,7 +152,7 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
                 return instance.getPublicIpAddress();
             }
         }
-        
+
         return "localhost";
     }
 
