@@ -24,16 +24,7 @@ import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
 public class LBFifteenPuzzleHandler implements HttpHandler {
     
-    private static LambdaInstance lambdaInstance;
-
-    public LBFifteenPuzzleHandler() {
-        super();
-    }
-
-    public LBFifteenPuzzleHandler(LambdaInstance li) throws Exception{
-        lambdaInstance = li;
-        lambdaInstance.registerLambdaFunction(Constants.FP_JAR_PATH, String.format(Constants.FP_PATH + "." + Constants.FP_HANDLER), Constants.FP_HANDLER);
-    }
+    private static LambdaInstance lambdaInstance = LambdaInstance.getInstance();
 
     @Override
     public void handle(HttpExchange he) throws IOException {
@@ -68,58 +59,62 @@ public class LBFifteenPuzzleHandler implements HttpHandler {
         String response = null;
         boolean useLambda = redirectToLambda(nInstructions, nMemAccesses);
 
-        boolean completeRequest = false;
-        int retries = 0;
+        boolean handled = false;
 
-        while (!completeRequest) {
-            if (!useLambda || retries == Constants.RETRIES) {
-                // Redirect to EC2 instance
-                boolean handled = false;
-                String destinationId = getInstanceIdWithLowestLoad(dbWriter);
-                // TODO: handle case where getInstanceIdWithLowestLoad returns null (if no instances are running)
-                String destinationIp = getEC2InstanceIP(destinationId);
-
-                System.out.println("LB: FifteenPuzzle request was sent to EC2 instance " + destinationId);
-
-                while (!handled) {
-                    try {
-                        RequestLifecycleManager.registerNewRequest(args, destinationId, requestId, nInstructions, nMemAccesses, dbWriter);
-                        response = get(destinationIp, Constants.FP_PATH, query);
-                        if (response != null && !response.isEmpty()) handled = true;
-                        else throw new IOException();
-                    } catch (Exception e) {
-                        RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
-                        destinationId = getInstanceIdWithLowestLoad(dbWriter);
-                        destinationIp = getEC2InstanceIP(destinationId);
-                    }
-                }
-
-                RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
-                completeRequest = true;
-            } else {
-                System.out.println("Try " + retries + ": FifteenPuzzle request was sent to Lambda");
+        if (useLambda) {
+            int attempts = 0;
+            while (!handled && attempts < Constants.RETRIES) {
+                System.out.println("LB: Attempt " + attempts + ": FifteenPuzzle request " + requestId + " was sent to Lambda");
                 Map<String, String> req = queryToMap(query);
                 String json = "{\"shuffles\":\"" + req.get("shuffles") +"\", \"size\":\"" + req.get("size") + "\"}";
                 try {
-                    response = lambdaInstance.lambdaRequest(json, Constants.FP_HANDLER);
-                    if (response != null) {
-                        completeRequest = true;
+                    response = lambdaInstance.lambdaRequest(json, Constants.FP_PATH);
+                    if (response != null && !response.contains("errorType")) {
+                        handled = true;
                     } else {
-                        retries += 1;
+                        attempts++;
                     }
                 } catch (Exception e) {
-                    retries += 1;
-                }     
-                /*
-                String logResult = res.getLogResult();
-                String decodedLogs = new String(Base64.getDecoder().decode(logResult), StandardCharsets.UTF_8);
-                Pattern pattern = Pattern.compile("Billed Duration:\\s*(\\d+)\\s*ms");
-                Matcher matcher = pattern.matcher(decodedLogs);
-                if (matcher.find()) 
-                    System.out.println("[" + req.get("shuffles") + "," + req.get("size") + "]" + "--" + matcher.group(1) + "ms");
-                */
+                    attempts++;
+                }
             }
         }
+        
+        if (!handled) { // wasn't handled by Lambda
+            // Redirect to EC2 instance
+            String destinationId = getInstanceIdWithLowestLoad(dbWriter);
+
+            // Wait for there to be active instances
+            while (destinationId == null) {
+                try {
+                    System.out.println("LB: request " + requestId + ": no active instances, wait for the auto scaler...");
+                    Thread.sleep(15000); // AutoScaler cycle occurs every 30 seconds
+                    destinationId = getInstanceIdWithLowestLoad(dbWriter);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            
+            String destinationIp = getEC2InstanceIP(destinationId);
+
+            System.out.println("LB: FifteenPuzzle request " + requestId + " was sent to EC2 instance " + destinationId);
+
+            while (!handled) {
+                try {
+                    RequestLifecycleManager.registerNewRequest(args, destinationId, requestId, nInstructions, nMemAccesses, dbWriter);
+                    response = get(destinationIp, Constants.FP_PATH, query);
+                    if (response != null && !response.isEmpty()) handled = true;
+                    else throw new IOException();
+                } catch (Exception e) {
+                    RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
+                    destinationId = getInstanceIdWithLowestLoad(dbWriter);
+                    destinationIp = getEC2InstanceIP(destinationId);
+                }
+            }
+
+            RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
+        }
+
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
         os.write(response.getBytes());

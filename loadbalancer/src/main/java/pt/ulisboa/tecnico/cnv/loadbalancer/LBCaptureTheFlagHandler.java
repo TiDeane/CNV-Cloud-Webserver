@@ -21,19 +21,10 @@ import com.amazonaws.services.ec2.model.Instance;
 
 import pt.ulisboa.tecnico.cnv.common.RequestLifecycleManager;
 import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
+
 public class LBCaptureTheFlagHandler implements HttpHandler {
 
-    private static LambdaInstance lambdaInstance;
-
-    public LBCaptureTheFlagHandler() {
-        super();
-    }
-
-    public LBCaptureTheFlagHandler(LambdaInstance li) {
-        lambdaInstance = li;
-        lambdaInstance.registerLambdaFunction(Constants.CTF_JAR_PATH, String.format(Constants.CTF_PATH + "." + Constants.CTF_HANDLER), Constants.CTF_HANDLER);
-    }
-
+    private static LambdaInstance lambdaInstance = LambdaInstance.getInstance();
 
     @Override
     public void handle(HttpExchange he) throws IOException {
@@ -68,58 +59,63 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
         String response = null;
         boolean useLambda = redirectToLambda(nInstructions, nMemAccesses);
 
-        boolean completeRequest = false;
-        int retries = 0;
-        
-        while (!completeRequest) {
-            if (!useLambda || retries == Constants.RETRIES) {
-                // Redirect to EC2 instance
-                boolean handled = false;
-                String destinationId = getInstanceIdWithLowestLoad(dbWriter);
-                // TODO: handle case where getInstanceIdWithLowestLoad returns null (if no instances are running)
-                String destinationIp = getEC2InstanceIP(destinationId);
+        boolean handled = false;
 
-                System.out.println("LB: CaptureTheFlag request was sent to EC2 instance " + destinationId);
-
-                while (!handled) {
-                    try {
-                        RequestLifecycleManager.registerNewRequest(args, destinationId, requestId, nInstructions, nMemAccesses, dbWriter);
-                        response = get(destinationIp, Constants.CTF_PATH, query);
-                        if (response != null && !response.isEmpty()) handled = true;
-                        else throw new IOException();
-                    } catch (Exception e) {
-                        RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
-                        destinationId = getInstanceIdWithLowestLoad(dbWriter);
-                        destinationIp = getEC2InstanceIP(destinationId);
-                    }
-                }
-
-                RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
-                completeRequest = true;
-            } else {
-                System.out.println("Try " + retries + ": CaptureTheFlag request was sent to Lambda");
+        if (useLambda) {
+            int attempts = 0;
+            while (!handled && attempts < Constants.RETRIES) {
+                System.out.println("LB: Attempt " + attempts + ": CaptureTheFlag request " + requestId + " was sent to Lambda");
                 Map<String, String> req = queryToMap(query);
                 String json = "{\"gridSize\":\"" + req.get("gridSize") +"\", \"numBlueAgents\":\"" + req.get("numBlueAgents") + "\", \"numRedAgents\":\"" + req.get("numRedAgents") + "\", \"flagPlacementType\":\"" + req.get("flagPlacementType") + "\"}";
                 try {
-                    response = lambdaInstance.lambdaRequest(json, Constants.CTF_HANDLER);
-                    if (response != null) {
-                        completeRequest = true;
+                    response = lambdaInstance.lambdaRequest(json, Constants.CTF_PATH);
+                    if (response != null && !response.contains("errorType")) {
+                        handled = true;
                     } else {
-                        retries += 1;
+                        attempts++;
                     }
                 } catch (Exception e) {
-                    retries += 1;
+                    e.printStackTrace();
+                    attempts++;
                 }
-                /*
-                String logResult = res.getLogResult();
-                String decodedLogs = new String(Base64.getDecoder().decode(logResult), StandardCharsets.UTF_8);
-                Pattern pattern = Pattern.compile("Billed Duration:\\s*(\\d+)\\s*ms");
-                Matcher matcher = pattern.matcher(decodedLogs);
-                if (matcher.find()) 
-                    System.out.println("[" + req.get("gridSize") + "," + req.get("numBlueAgents") + "," + req.get("numRedAgents") + "]" + "--" + matcher.group(1) + "ms");
-                */
             }
         }
+        
+        if (!handled) { // wasn't handled by Lambda
+            // Redirect to EC2 instance
+            String destinationId = getInstanceIdWithLowestLoad(dbWriter);
+
+            // Wait for there to be active instances
+            while (destinationId == null) {
+                try {
+                    System.out.println("LB: request " + requestId + ": no active instances, wait for the auto scaler...");
+                    Thread.sleep(15000); // AutoScaler cycle occurs every 30 seconds
+                    destinationId = getInstanceIdWithLowestLoad(dbWriter);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            
+            String destinationIp = getEC2InstanceIP(destinationId);
+
+            System.out.println("LB: CaptureTheFlag request " + requestId + " was sent to EC2 instance " + destinationId);
+
+            while (!handled) {
+                try {
+                    RequestLifecycleManager.registerNewRequest(args, destinationId, requestId, nInstructions, nMemAccesses, dbWriter);
+                    response = get(destinationIp, Constants.CTF_PATH, query);
+                    if (response != null && !response.isEmpty()) handled = true;
+                    else throw new IOException();
+                } catch (Exception e) {
+                    RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
+                    destinationId = getInstanceIdWithLowestLoad(dbWriter);
+                    destinationIp = getEC2InstanceIP(destinationId);
+                }
+            }
+
+            RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
+        }
+
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
         os.write(response.getBytes());
