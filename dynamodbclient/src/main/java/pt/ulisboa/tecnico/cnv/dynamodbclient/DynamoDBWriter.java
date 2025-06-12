@@ -267,6 +267,7 @@ public class DynamoDBWriter {
         }
     }
 
+    /* Returns all table entries from CNVRequestMetrics for the corresponding handler */
     public List<Map<String, AttributeValue>> getHandlerRequestMetrics(String handler) {
         Map<String, AttributeValue> expressionAttributeValues = new HashMap<>();
         expressionAttributeValues.put(":h", new AttributeValue().withS(handler));
@@ -302,6 +303,7 @@ public class DynamoDBWriter {
         }
     }
 
+    /* Checks if the instance with the given ID has no ongoing requests */
     public boolean isInstanceIdle(String instanceId) {
         Map<String, AttributeValue> expressionAttributeValues = new HashMap<>();
         expressionAttributeValues.put(":id", new AttributeValue().withS(instanceId));
@@ -336,6 +338,7 @@ public class DynamoDBWriter {
         }
     }
 
+    /* Removes all requests stored in the given map from CNVOngoingRequests */
     public void cleanUpOngoingRequests(ConcurrentMap<String, String> activeRequests) {
         for (Map.Entry<String, String> entry : activeRequests.entrySet()) {
             deregisterRequest(entry.getValue(), entry.getKey());

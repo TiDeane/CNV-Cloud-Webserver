@@ -179,6 +179,7 @@ public class AutoScaler {
         }
     }
 
+    /* Checks if the instance with the given ID is idle, and terminates them if so */
     private boolean terminateInstanceIfIdle(String instanceId) {
         if (dbWriter.isInstanceIdle(instanceId)) {
             System.out.println("AS: Terminated idle instance: " + instanceId);
@@ -192,7 +193,8 @@ public class AutoScaler {
         return false;
     }
 
-    /* Manages active instances. This function is called every AutoScaler cycle, and by the Load Balancer when requests fail */
+    /* Manages instances. This function is called every AutoScaler cycle, and by the Load Balancer when requests fail */
+    /* If an active instance isn't receiving requests, it is removed from activeInstanceIds and considered as terminated */
     public void checkInstanceActivity(String instanceId) {
          try {
             DescribeInstancesRequest request = new DescribeInstancesRequest().withInstanceIds(instanceId);
@@ -244,10 +246,7 @@ public class AutoScaler {
         }
     }
 
-    public Set<String> getActiveInstanceIds() {
-        return Collections.unmodifiableSet(activeInstanceIds);
-    }
-
+    /* Returns the ID of the instance with the lowest load, or null if there are no active instances */
     public String getInstanceIdWithLowestLoad() {
         String lowestLoadId = null; // fallback value
         double minCost = Double.MAX_VALUE;
@@ -274,6 +273,8 @@ public class AutoScaler {
             long nMem = Long.parseLong(item.get("nMemAccesses").getN());
             String handlerName = item.get("handlerName").getS();
             double cost;
+
+            /* Estimates the request's cost based on the handler's linear regression weights */
             switch(handlerName) {
                 case Constants.CTF_HANDLER:
                     cost = Constants.CTF_ALPHA * nInst + Constants.CTF_BETA * nMem + Constants.CTF_INTERCEPT;
@@ -285,7 +286,7 @@ public class AutoScaler {
                     cost = Constants.FP_ALPHA * nInst + Constants.FP_BETA * nMem + Constants.FP_BETA;
                     break;
                 default:
-                    // fallback to avoid nulls. Use values from regression that unifies all handlers
+                    // fallback to avoid nulls. Uses values from regression that unifies all handlers
                     cost = ALPHA * nInst + BETA * nMem + INTERCEPT;
                     break;
             }
@@ -302,6 +303,7 @@ public class AutoScaler {
         return lowestLoadId;
     }
 
+    /* Terminates all instances regardless of their current state */
     public void terminateAllInstances() {
         Set<String> allInstanceIds = new HashSet<>();
         allInstanceIds.addAll(activeInstanceIds);
@@ -313,8 +315,7 @@ public class AutoScaler {
         }
 
         try {
-            TerminateInstancesRequest request = new TerminateInstancesRequest()
-                .withInstanceIds(allInstanceIds);
+            TerminateInstancesRequest request = new TerminateInstancesRequest().withInstanceIds(allInstanceIds);
 
             ec2.terminateInstances(request);
 
