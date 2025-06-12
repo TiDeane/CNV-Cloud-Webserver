@@ -5,6 +5,9 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentMap;
+
+import javax.smartcardio.ATR;
+
 import java.util.List;
 
 import com.amazonaws.AmazonClientException;
@@ -130,20 +133,21 @@ public class DynamoDBWriter {
     }
 
     /* Creates a new item for the CNVOngoingRequests table */
-    private Map<String, AttributeValue> newOngoingItem(String instanceId, String requestId, long nInstructions, long nMemAccesses) {
+    private Map<String, AttributeValue> newOngoingItem(String instanceId, String requestId, long nInstructions, long nMemAccesses, String handler_name) {
         Map<String, AttributeValue> item = new HashMap<String, AttributeValue>();
         item.put("instanceId", new AttributeValue(instanceId));
         item.put("requestId", new AttributeValue(requestId));
         item.put("nInstructions", new AttributeValue().withN(String.valueOf(nInstructions)));
         item.put("nMemAccesses", new AttributeValue().withN(String.valueOf(nMemAccesses)));
+        item.put("handlerName", new AttributeValue(handler_name));
         return item;
     }
 
     /* Writes new request's instanceId, requestId, and (possibly estimated) metrics to the CNVOngoingRequests table */
-    public void registerNewRequest(String instanceId, String requestId, long instructions, long memAccesses) {
+    public void registerNewRequest(String instanceId, String requestId, long instructions, long memAccesses, String handler_name) {
         // Note: "instructions" and "memAccesses" may be estimations!
         try {
-            dynamoDB.putItem(new PutItemRequest(ongoingRequestsTableName, newOngoingItem(instanceId, requestId, instructions, memAccesses)));
+            dynamoDB.putItem(new PutItemRequest(ongoingRequestsTableName, newOngoingItem(instanceId, requestId, instructions, memAccesses, handler_name)));
         } catch (AmazonServiceException ase) {
             System.out.println("Caught an AmazonServiceException, which means your request made it "
                     + "to AWS, but was rejected with an error response for some reason.");

@@ -11,8 +11,8 @@ import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 public class RequestLifecycleManager {
 
     /* Registers a new request in the ongoing requests table */
-    public static void registerNewRequest(String args, String instanceId, String requestId, long nInstructions, long nMemAccesses, DynamoDBWriter dbWriter) {
-        dbWriter.registerNewRequest(instanceId, requestId, nInstructions, nMemAccesses);
+    public static void registerNewRequest(String args, String instanceId, String requestId, long nInstructions, long nMemAccesses, DynamoDBWriter dbWriter, String handler_name) {
+        dbWriter.registerNewRequest(instanceId, requestId, nInstructions, nMemAccesses, handler_name);
     }
 
     /* Removes a request from the ongoing requests table */

@@ -272,8 +272,23 @@ public class AutoScaler {
             String instanceId = item.get("instanceId").getS();
             long nInst = Long.parseLong(item.get("nInstructions").getN());
             long nMem = Long.parseLong(item.get("nMemAccesses").getN());
-
-            double cost = ALPHA * nInst + BETA * nMem + INTERCEPT;
+            String handlerName = item.get("handlerName").getS();
+            double cost;
+            switch(handlerName) {
+                case "CTF":
+                    cost = Constants.CTF_ALPHA * nInst + Constants.CTF_BETA * nMem + Constants.CTF_INTERCEPT;
+                    break; 
+                case "GOL":
+                    cost = Constants.GOL_ALPHA * nInst + Constants.GOL_BETA * nMem + Constants.GOL_INTERCEPT;
+                    break;
+                case "FP":
+                    cost = Constants.FP_ALPHA * nInst + Constants.FP_BETA * nMem + Constants.FP_BETA;
+                    break;
+                default:
+                    // fallback to avoid nulls. Use values from regression that unifies all handlers
+                    cost = ALPHA * nInst + BETA * nMem + INTERCEPT;
+                    break;
+            }
             instanceLoads.put(instanceId, instanceLoads.getOrDefault(instanceId, 0.0) + cost);
         }
 
