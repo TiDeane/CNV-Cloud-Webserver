@@ -2,9 +2,10 @@ package pt.ulisboa.tecnico.cnv.dynamodbclient;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.List;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
@@ -328,6 +329,12 @@ public class DynamoDBWriter {
             System.out.println("Error Message: " + ace.getMessage());
 
             return false;
+        }
+    }
+
+    public void cleanUpOngoingRequests(ConcurrentMap<String, String> activeRequests) {
+        for (Map.Entry<String, String> entry : activeRequests.entrySet()) {
+            deregisterRequest(entry.getValue(), entry.getKey());
         }
     }
 

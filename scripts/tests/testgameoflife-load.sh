@@ -8,7 +8,7 @@ mapFilename=$3
 iterations=$4
 
 function test_batch_requests {
-	REQUESTS=3
+	REQUESTS=4
 	CONNECTIONS=1
 	ab -n $REQUESTS -c $CONNECTIONS http://$HOST:$PORT/gameoflife\?mapFilename=$mapFilename\&iterations=$iterations
 }

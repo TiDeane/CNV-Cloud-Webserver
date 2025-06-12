@@ -8,8 +8,6 @@ import java.util.concurrent.TimeUnit;
 import com.sun.net.httpserver.HttpServer;
 import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
-
-
 public class LBWebServer {
     public static void main(String[] args) throws Exception {
         DynamoDBWriter.setup();          // Set up DynamoDB tables
@@ -47,6 +45,7 @@ public class LBWebServer {
 
             try {
                 AutoScaler.getInstance().terminateAllInstances();
+                DynamoDBWriter.getInstance().cleanUpOngoingRequests(Constants.activeRequests);
             } catch (Exception e) {
                 System.err.println("Shutdown cleanup failed:");
                 e.printStackTrace();
