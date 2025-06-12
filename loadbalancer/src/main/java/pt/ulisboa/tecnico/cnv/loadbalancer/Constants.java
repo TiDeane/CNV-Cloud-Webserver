@@ -14,7 +14,8 @@ public final class Constants {
     public static final double ALPHA = 8.381637e-07;
     public static final double BETA = 6.541957e-06;
     public static final double INTERCEPT = 339.600299;
-    public static final double THRESHOLD = 4100.0;
+    public static final double THRESHOLD = 5000.0;
+    public static final double RMSE = 503.1565;
 
     //Game Of Life LBHandler specific constants
     public static final String GOL_HANDLER = "GameOfLifeHandler";
