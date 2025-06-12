@@ -52,10 +52,10 @@ public class AutoScaler {
     private static final double INTERCEPT = 206.2278774369248;
 
     private static String AWS_REGION = "eu-west-1";
-    private static String AMI_ID = "ami-0dc0accdfb741c964";        // replace with webserver AMI
+    private static String AMI_ID = "ami-04a80d326673de984";        // replace with webserver AMI
     private static String INSTANCE_TYPE = "t2.micro";
     private static String KEY_NAME = "eu-west-1-keypair";          // replace with your keypair
-    private static String SEC_GROUP_ID = "sg-0b1ed456f41ca73b2";   // replace with your security group
+    private static String SEC_GROUP_ID = "sg-05687660699d1fb10";   // replace with your security group
 
     private static final AutoScaler instance = new AutoScaler();
 
