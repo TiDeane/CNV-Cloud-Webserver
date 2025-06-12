@@ -25,7 +25,6 @@ import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 public class LBFifteenPuzzleHandler implements HttpHandler {
     
     private static LambdaInstance lambdaInstance = LambdaInstance.getInstance();
-    private static final String HANDLER_NAME = "FP";
 
     @Override
     public void handle(HttpExchange he) throws IOException {
@@ -91,7 +90,7 @@ public class LBFifteenPuzzleHandler implements HttpHandler {
             while (!handled) {
                 try {
                     Constants.activeRequests.put(requestId, destinationId);
-                    RequestLifecycleManager.registerNewRequest(args, destinationId, requestId, nInstructions, nMemAccesses, dbWriter, HANDLER_NAME);
+                    RequestLifecycleManager.registerNewRequest(args, destinationId, requestId, nInstructions, nMemAccesses, dbWriter, Constants.FP_HANDLER);
 
                     response = get(destinationIp, Constants.FP_PATH, query);
                     if (response != null && !response.isEmpty()) handled = true;

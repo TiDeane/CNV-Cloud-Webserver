@@ -275,13 +275,13 @@ public class AutoScaler {
             String handlerName = item.get("handlerName").getS();
             double cost;
             switch(handlerName) {
-                case "CTF":
+                case Constants.CTF_HANDLER:
                     cost = Constants.CTF_ALPHA * nInst + Constants.CTF_BETA * nMem + Constants.CTF_INTERCEPT;
                     break; 
-                case "GOL":
+                case Constants.GOL_HANDLER:
                     cost = Constants.GOL_ALPHA * nInst + Constants.GOL_BETA * nMem + Constants.GOL_INTERCEPT;
                     break;
-                case "FP":
+                case Constants.FP_HANDLER:
                     cost = Constants.FP_ALPHA * nInst + Constants.FP_BETA * nMem + Constants.FP_BETA;
                     break;
                 default:
