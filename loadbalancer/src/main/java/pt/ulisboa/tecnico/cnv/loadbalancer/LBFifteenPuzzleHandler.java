@@ -182,8 +182,8 @@ public class LBFifteenPuzzleHandler implements HttpHandler {
     }
 
     private boolean redirectToLambda(long nInstructions, long nMemAccesses) {
-        double execTime = Constants.ALPHA * nInstructions + Constants.BETA * nMemAccesses + Constants.INTERCEPT;
-        return execTime + Constants.RMSE < Constants.THRESHOLD;
+        double execTime = Constants.FP_ALPHA * nInstructions + Constants.FP_BETA * nMemAccesses + Constants.FP_INTERCEPT;
+        return execTime + Constants.FP_RMSE < Constants.FP_THRESHOLD;
     }
 
 }

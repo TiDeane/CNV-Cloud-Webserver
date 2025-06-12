@@ -182,8 +182,8 @@ public class LBGameOfLifeHandler implements HttpHandler {
     }
 
     private boolean redirectToLambda(long nInstructions, long nMemAccesses) {
-        double execTime = Constants.ALPHA * nInstructions + Constants.BETA * nMemAccesses + Constants.INTERCEPT;
-        return execTime + Constants.RMSE < Constants.THRESHOLD;
+        double execTime = Constants.GOL_ALPHA * nInstructions + Constants.GOL_BETA * nMemAccesses + Constants.GOL_INTERCEPT;
+        return execTime + Constants.GOL_RMSE < Constants.GOL_THRESHOLD;
     }
     
 }

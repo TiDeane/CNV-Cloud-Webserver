@@ -183,7 +183,7 @@ public class LBCaptureTheFlagHandler implements HttpHandler {
     }
 
     private boolean redirectToLambda(long nInstructions, long nMemAccesses) {
-        double execTime = Constants.ALPHA * nInstructions + Constants.BETA * nMemAccesses + Constants.INTERCEPT;
-        return execTime + Constants.RMSE < Constants.THRESHOLD;
+        double execTime = Constants.CTF_ALPHA * nInstructions + Constants.CTF_BETA * nMemAccesses + Constants.CTF_INTERCEPT;
+        return execTime + Constants.CTF_RMSE < Constants.CTF_THRESHOLD;
     }
 }
