@@ -1,6 +1,6 @@
 ## Common
 
-This folder contains common functionalities for the handlers and webserver. 
+This directory contains classes for request cost estimation and request lifecycle management
 
 ### How to build
 

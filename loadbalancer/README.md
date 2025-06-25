@@ -12,6 +12,5 @@ This project contains the loadbalancer and autoscaler functionality.
 To run the loadbalancer/autoscaler locally, execute this command:
 
 ```
-java -cp /home/tomas/CNVf2/cnv25-g28/loadbalancer/target/loadbalancer-1.0-jar-with-dependencies.jar pt.ulisboa.tecnico.cnv.loadbalancer.LBWebServer
+java -cp loadbalancer/target/loadbalancer-1.0-jar-with-dependencies.jar pt.ulisboa.tecnico.cnv.loadbalancer.LBWebServer
 ```
-

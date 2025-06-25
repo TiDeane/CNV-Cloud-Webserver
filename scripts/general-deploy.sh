@@ -6,12 +6,8 @@ $DIR/create-image.sh
 
 sleep 5
 
-$DIR/launch-lb.sh
-
-sleep 5
-
 $DIR/lambda-register.sh
 
 sleep 5
 
-$DIR/lambda-invoke.sh
+$DIR/launch-lb.sh

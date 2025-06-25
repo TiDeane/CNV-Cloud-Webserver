@@ -1,6 +1,6 @@
 ## DynamoDB Client
 
-This directory contains logic for the DynamoDBWriter class
+This directory contains logic for interacting with DynamoDB
 
 ### How to build
 

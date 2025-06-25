@@ -1,27 +1,28 @@
 ## Games@Cloud
 
-### Current Architecture
+This project consists of a load balancer/autoscaler instance that launches and manages webservers, instrumented with Javassist, that run computationally-intensive tasks based on games, namely: capturetheflag, fifteenpuzzle and gameoflife. To balance load efficiently, it uses two DynamoDB tables to estimate request cost and measure current load, and sends low complexity requests to Lambda.
 
-The webserver is instrumented with Javassist to extract metrics, using the tool ``MetricsExtractor``. The tool uses threads and extracts the number of instructions and number of memory accesses of each new request. The metrics are obtained by the webserver handlers and stored in the ``metrics.txt`` file. Later on, they will be stored in DynamoDB instead (with a different structure). 
+Detailed information on this project, including reasoning for the decisions made, is available on the [report](final_project_report_cnv_g28.pdf), where it is explained in depth:
+- **Architecture**;
+- **Instrumentation metrics**;
+- **Data structures** (DynamoDB tables);
+- **Request cost estimation**;
+- **Task scheduling algorithm** (load balancing);
+- **Auto-scaling algorithm**; and
+- **Fault-tolerance**.
 
-### AWS System Configuration
+## Modules
 
-- The script ``create-image.sh`` creates an AMI of the webserver. The script ``launch-deployment-template.sh`` can then be used to launch the deployment with alarms, load balancing and auto scaling with AWS own resources.
-- The script ``launch-lb.sh`` creates and launches our loadbalancer/autoscaler in an EC2 instance.
-- Our Autoscaler has a desired capacity of 1, minimum capacity of 1 and maximum capacity of 2. It uses step scaling, scaling out when average CPU utilization is higher than 30%, and scaling in when average CPU utilization is lower than 10%. It performs scaling events at least 5min apart from each other. It is configured to launch instances with the AMI created previously.
-- The script ``function-register.sh`` launches our lambda instances in AWS. 
-
-## Endpoints
-
-This project contains eight sub-projects:
+This project contains eight modules:
 
 1. `capturetheflag` - the Capture the Flag workload
 2. `fifteenpuzzle` - the 15-Puzzle Solver workload
 3. `gameoflife` - the Conway's Game of Life workload
 4. `webserver` - the web server exposing the functionality of the workloads
-5. `common` - the web server exposing the functionality of the workloads
-6. `dynamodbclient` - the deployment and handling of our dynamoDB
-7. `loadbalancer` - the loadbalancer and autoscaler workload
+5. `javassist` - the Javassist agent used to extract metrics about executed requests
+6. `common` - request cost estimation and request lifecycle management
+7. `dynamodbclient` - manages the deployment of and interactions our DynamoDB
+8. `loadbalancer` - the loadbalancer and autoscaler
 
 Refer to the `README.md` files of the sub-projects to get more details about each specific sub-project.
 
@@ -29,4 +30,19 @@ Refer to the `README.md` files of the sub-projects to get more details about eac
 
 1. Make sure your `JAVA_HOME` environment variable is set to Java 11+ distribution
 2. Run `mvn clean package`
-3. To build the entire project from scratch, including the AMI image, run the script ``general-deploy.sh``
+3. To build and deploy the entire project from scratch, including the AMI image, run the script ``general-deploy.sh``
+
+### Project Scripts
+
+As mentioned in the previous section, the script ``general-deploy.sh`` can be used to deploy the entire project from scratch. It does this by running the following scripts:
+- The script ``create-image.sh``, which creates an AMI of the webserver.
+- The script ``function-register.sh``, which registers our lambda functions in AWS. 
+- The script ``launch-lb.sh``, which creates and launches our own custom loadbalancer/autoscaler in an EC2 instance.
+
+**Note**: to run these scripts, it is necessary to write your AWS credentials into the script ``config.sh``.
+
+**Running locally**: to run our load balancer or webservers locally, it is also necessary to load your AWS credentials into the environment with ``source config.sh`` so that they can interact with AWS resources.
+
+**Full AWS deployment**: The script ``launch-deployment-template.sh`` can also be used to launch the deployment using alarms, load balancing and auto scaling with AWS-owned resources.
+
+**Generating load**: in the directory ``scripts/tests/``, there are multiple scripts that send requests of different types to generate load on the webservers.

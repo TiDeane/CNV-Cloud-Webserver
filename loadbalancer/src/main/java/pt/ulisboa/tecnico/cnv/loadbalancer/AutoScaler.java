@@ -42,8 +42,8 @@ public class AutoScaler {
     private static int minimumCapacity = 1;
     private static int maximumCapacity = 2;
 
-    private static double SCALE_UP_THRESHOLD = 30.0;     // Average CPU > 30% → scale up
-    private static double SCALE_DOWN_THRESHOLD = 10.0;   // Average CPU < 10% → scale down
+    private static double SCALE_UP_THRESHOLD = 70.0;     // Average CPU > 70% → scale up
+    private static double SCALE_DOWN_THRESHOLD = 30.0;   // Average CPU < 30% → scale down
     private static int COOLDOWN_PERIOD = 300;            // 5 minutes cooldown period
     private static long OBS_TIME = 1000 * 60 * 5;        // 5 minutes cloudwatch observation period
 
