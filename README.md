@@ -2,13 +2,13 @@
 
 This project consists of a load balancer/autoscaler instance that launches and manages webservers, instrumented with Javassist, that run computationally-intensive tasks based on games, namely: capturetheflag, fifteenpuzzle and gameoflife. To balance load efficiently, it uses two DynamoDB tables to estimate request cost and measure current load, and sends low complexity requests to Lambda.
 
-Detailed information on this project, including reasoning for the decisions made, is available on the [report](final_project_report_cnv_g28.pdf), where it is explained in depth:
-- **Architecture**;
+Detailed information on this project, including reasoning for the decisions made, is available in the [report](final_project_report_CNV_g28.pdf), which explains:
+- The **architecture**;
 - **Instrumentation metrics**;
 - **Data structures** (DynamoDB tables);
 - **Request cost estimation**;
 - **Task scheduling algorithm** (load balancing);
-- **Auto-scaling algorithm**; and
+- **Auto-scaling algorithm**;
 - **Fault-tolerance**.
 
 ## Modules
