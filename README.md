@@ -30,7 +30,9 @@ Refer to the `README.md` files of the sub-projects to get more details about eac
 
 1. Make sure your `JAVA_HOME` environment variable is set to Java 11+ distribution
 2. Run `mvn clean package`
-3. To build and deploy the entire project from scratch, including the AMI image, run the script ``general-deploy.sh``
+3. To build and deploy the entire project from scratch, including the AMI image, run the script ``general-deploy.sh``. More information on what specifically this script does is in the next section.
+
+Keep in mind that it is necessary to update ``AutoScaler.java`` with the correct information (AMI ID, security group, etc.)
 
 ### Project Scripts
 
