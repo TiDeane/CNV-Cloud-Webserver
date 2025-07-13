@@ -19,12 +19,13 @@ import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.Instance;
 
+import pt.ulisboa.tecnico.cnv.common.Constants;
 import pt.ulisboa.tecnico.cnv.common.RequestLifecycleManager;
 import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
 public class LBGameOfLifeHandler implements HttpHandler {
 
-    private static LambdaInstance lambdaInstance = LambdaInstance.getInstance();
+    private static LambdaInvoker lambdaInvoker = LambdaInvoker.getInstance();
 
     @Override
     public void handle(HttpExchange he) throws IOException {
@@ -68,7 +69,7 @@ public class LBGameOfLifeHandler implements HttpHandler {
                 Map<String, String> req = queryToMap(query);
                 String json = "{\"mapFilename\":\"" + req.get("mapFilename") +"\", \"iterations\":\"" + req.get("iterations") + "\"}";
                 try {
-                    response = lambdaInstance.lambdaRequest(json, Constants.GOL_PATH);
+                    response = lambdaInvoker.lambdaRequest(json, Constants.GOL_PATH);
                     if (response != null && !response.contains("errorType")) {
                         handled = true;
                     } else {

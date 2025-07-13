@@ -6,6 +6,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import com.sun.net.httpserver.HttpServer;
+
+import pt.ulisboa.tecnico.cnv.common.Constants;
 import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
 public class LBWebServer {

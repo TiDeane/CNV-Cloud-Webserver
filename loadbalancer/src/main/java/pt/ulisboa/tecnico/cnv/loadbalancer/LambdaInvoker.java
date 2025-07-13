@@ -6,23 +6,25 @@ import com.amazonaws.services.lambda.AWSLambdaClientBuilder;
 import com.amazonaws.services.lambda.model.InvokeRequest;
 import com.amazonaws.services.lambda.model.InvokeResult;
 
+import pt.ulisboa.tecnico.cnv.common.Constants;
+
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
-public class LambdaInstance {
+public class LambdaInvoker {
 
     private static AWSLambda awsLambda;
 
-    private static final LambdaInstance instance = new LambdaInstance();
+    private static final LambdaInvoker instance = new LambdaInvoker();
 
-    private LambdaInstance() {
+    private LambdaInvoker() {
         awsLambda = AWSLambdaClientBuilder.standard()
                 .withCredentials(new EnvironmentVariableCredentialsProvider())
                 .withRegion(Constants.AWS_REGION)
                 .build();
     }
 
-    public static LambdaInstance getInstance() {
+    public static LambdaInvoker getInstance() {
         return instance;
     }
     

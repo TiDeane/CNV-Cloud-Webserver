@@ -19,12 +19,13 @@ import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.Instance;
 
+import pt.ulisboa.tecnico.cnv.common.Constants;
 import pt.ulisboa.tecnico.cnv.common.RequestLifecycleManager;
 import pt.ulisboa.tecnico.cnv.dynamodbclient.DynamoDBWriter;
 
 public class LBFifteenPuzzleHandler implements HttpHandler {
     
-    private static LambdaInstance lambdaInstance = LambdaInstance.getInstance();
+    private static LambdaInvoker lambdaInvoker = LambdaInvoker.getInstance();
 
     @Override
     public void handle(HttpExchange he) throws IOException {
@@ -68,7 +69,7 @@ public class LBFifteenPuzzleHandler implements HttpHandler {
                 Map<String, String> req = queryToMap(query);
                 String json = "{\"shuffles\":\"" + req.get("shuffles") +"\", \"size\":\"" + req.get("size") + "\"}";
                 try {
-                    response = lambdaInstance.lambdaRequest(json, Constants.FP_PATH);
+                    response = lambdaInvoker.lambdaRequest(json, Constants.FP_PATH);
                     if (response != null && !response.contains("errorType")) {
                         handled = true;
                     } else {
