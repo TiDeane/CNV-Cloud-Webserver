@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Games@Cloud Console</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <h1>Games@Cloud</h1>
+    </div>
+    <form class="target" id="target-form" autocomplete="off">
+      <label for="target-url">Target</label>
+      <input id="target-url" type="text" inputmode="url" spellcheck="false" placeholder="http://localhost:8001" required>
+      <button type="submit" class="btn btn-quiet" id="target-check">Check</button>
+      <span class="status-dot" id="target-status" data-state="idle" title="Not checked"></span>
+    </form>
+    <button class="btn btn-quiet icon-btn" id="theme-toggle" type="button" aria-label="Toggle colour theme" title="Toggle colour theme">◐</button>
+  </header>
+
+  <main class="layout">
+    <section class="panel request-panel" aria-labelledby="request-title">
+      <h2 id="request-title" class="panel-title">Request</h2>
+
+      <div class="tabs" role="tablist" aria-label="Game">
+        <button role="tab" class="tab" data-game="capturetheflag" aria-selected="true">Capture the Flag</button>
+        <button role="tab" class="tab" data-game="fifteenpuzzle" aria-selected="false">15-Puzzle</button>
+        <button role="tab" class="tab" data-game="gameoflife" aria-selected="false">Game of Life</button>
+      </div>
+
+      <form id="form-capturetheflag" class="game-form" data-game="capturetheflag" novalidate>
+        <div class="field-row">
+          <label class="field">
+            <span>Grid size</span>
+            <input name="gridSize" type="number" min="10" step="1" value="20" required>
+          </label>
+          <label class="field">
+            <span>Flag placement</span>
+            <select name="flagPlacementType">
+              <option value="A">A · edges</option>
+              <option value="B">B · centre</option>
+              <option value="C">C · scattered</option>
+            </select>
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field">
+            <span>Blue agents</span>
+            <input name="numBlueAgents" type="number" min="0" step="1" value="5" required>
+          </label>
+          <label class="field">
+            <span>Red agents</span>
+            <input name="numRedAgents" type="number" min="0" step="1" value="5" required>
+          </label>
+        </div>
+        <p class="hint">Grid size ≥ 10; agents per team ≤ grid size. Each team chases grid size ÷ 2 flags.</p>
+      </form>
+
+      <form id="form-fifteenpuzzle" class="game-form" data-game="fifteenpuzzle" novalidate hidden>
+        <div class="field-row">
+          <label class="field">
+            <span>Board size</span>
+            <input name="size" type="number" min="2" step="1" value="4" required>
+          </label>
+          <label class="field">
+            <span>Shuffles</span>
+            <input name="shuffles" type="number" min="0" step="1" value="20" required>
+          </label>
+        </div>
+        <p class="hint">Shuffles use a fixed seed (42), so equal parameters always give the same board.</p>
+      </form>
+
+      <form id="form-gameoflife" class="game-form" data-game="gameoflife" novalidate hidden>
+        <div class="field-row">
+          <label class="field">
+            <span>Map file</span>
+            <input name="mapFilename" list="gol-maps" value="glider-10-10.json" spellcheck="false" required>
+            <datalist id="gol-maps">
+              <option value="glider-10-10.json"></option>
+            </datalist>
+          </label>
+          <label class="field">
+            <span>Iterations</span>
+            <input name="iterations" type="number" min="0" step="1" value="10" required>
+          </label>
+        </div>
+        <p class="hint">The map must exist in the server's <code>gameoflife/src/main/resources</code>.</p>
+      </form>
+
+      <p class="form-error" id="form-error" role="alert" hidden></p>
+
+      <div class="actions">
+        <button class="btn btn-primary" id="send-btn" type="button">Send request</button>
+        <button class="btn" id="cancel-btn" type="button" hidden>Cancel</button>
+        <code class="url-preview" id="url-preview"></code>
+      </div>
+    </section>
+
+    <section class="panel result-panel" aria-labelledby="result-title" aria-live="polite">
+      <div class="result-head">
+        <h2 id="result-title" class="panel-title">Result</h2>
+        <div class="meta" id="result-meta"></div>
+      </div>
+      <div id="result-body" class="result-body">
+        <div class="empty">
+          <p>Pick a game, set its parameters and send a request.</p>
+          <p class="muted">Light requests are usually served by Lambda; heavy ones by an EC2 worker.</p>
+        </div>
+      </div>
+      <details class="raw" id="raw-details" hidden>
+        <summary>Raw response</summary>
+        <pre id="raw-body"></pre>
+      </details>
+    </section>
+
+    <section class="panel bottom-panel" aria-label="History and load testing">
+      <div class="tabs" role="tablist" aria-label="Tools">
+        <button role="tab" class="tab" data-tool="history" aria-selected="true">History</button>
+        <button role="tab" class="tab" data-tool="burst" aria-selected="false">Burst test</button>
+      </div>
+
+      <div id="tool-history" class="tool">
+        <div class="tool-head">
+          <p class="muted" id="history-count"></p>
+          <button class="btn btn-quiet" id="history-clear" type="button">Clear</button>
+        </div>
+        <div class="table-wrap">
+          <table class="table" id="history-table">
+            <thead>
+              <tr><th>Time</th><th>Game</th><th>Parameters</th><th>Served by</th><th class="num">Latency</th><th>Status</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="tool-burst" class="tool" hidden>
+        <form class="burst-form" id="burst-form" novalidate>
+          <p class="burst-source" id="burst-source"></p>
+          <div class="field-row">
+            <label class="field">
+              <span>Requests</span>
+              <input name="total" type="number" min="1" max="1000" step="1" value="20" required>
+            </label>
+            <label class="field">
+              <span>Concurrency</span>
+              <input name="concurrency" type="number" min="1" max="100" step="1" value="5" required>
+            </label>
+          </div>
+          <p class="hint">Browsers open about 6 connections per host, so higher concurrency is queued by the browser. EC2-bound requests can wait minutes while the AutoScaler boots an instance; there is no client timeout.</p>
+          <div class="actions">
+            <button class="btn btn-primary" id="burst-start" type="submit">Start burst</button>
+            <button class="btn" id="burst-cancel" type="button" hidden>Cancel</button>
+          </div>
+        </form>
+
+        <div class="burst-summary" id="burst-summary" hidden></div>
+        <div class="table-wrap">
+          <table class="table" id="burst-table" hidden>
+            <thead>
+              <tr><th class="num">#</th><th>State</th><th>Served by</th><th class="num">Latency</th><th>Detail</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

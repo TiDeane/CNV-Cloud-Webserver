@@ -48,3 +48,5 @@ As mentioned in the previous section, the script ``general-deploy.sh`` can be us
 **Full AWS deployment**: The script ``launch-deployment-template.sh`` can also be used to launch the deployment using alarms, load balancing and auto scaling with AWS-owned resources.
 
 **Generating load**: in the directory ``scripts/tests/``, there are multiple scripts that send requests of different types to generate load on the webservers.
+
+**Web UI**: the directory ``webui/`` contains a static browser console to send requests, visualize each game and run load bursts. See ``webui/README.md``.
