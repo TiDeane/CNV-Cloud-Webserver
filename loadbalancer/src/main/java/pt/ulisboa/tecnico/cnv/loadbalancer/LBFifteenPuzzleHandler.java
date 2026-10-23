@@ -61,6 +61,7 @@ public class LBFifteenPuzzleHandler implements HttpHandler {
         boolean useLambda = redirectToLambda(nInstructions, nMemAccesses);
 
         boolean handled = false;
+        String handledBy = null;
 
         if (useLambda) {
             int attempts = 0;
@@ -72,6 +73,7 @@ public class LBFifteenPuzzleHandler implements HttpHandler {
                     response = lambdaInvoker.lambdaRequest(json, Constants.FP_PATH);
                     if (response != null && !response.contains("errorType")) {
                         handled = true;
+                        handledBy = "lambda";
                     } else {
                         attempts++;
                     }
@@ -110,8 +112,12 @@ public class LBFifteenPuzzleHandler implements HttpHandler {
 
             RequestLifecycleManager.deregisterRequest(destinationId, requestId, dbWriter);
             Constants.activeRequests.remove(requestId, destinationId);
+            handledBy = "ec2:" + destinationId;
         }
 
+        he.getResponseHeaders().add("X-Handled-By", handledBy);
+        he.getResponseHeaders().add("X-Request-Id", requestId);
+        he.getResponseHeaders().add("Access-Control-Expose-Headers", "X-Handled-By, X-Request-Id");
         he.sendResponseHeaders(200, response.length());
         OutputStream os = he.getResponseBody();
         os.write(response.getBytes());
