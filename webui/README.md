@@ -18,6 +18,34 @@ Then open `http://localhost:8080` and set **Target** to:
 
 All game handlers already send `Access-Control-Allow-Origin: *`, so no proxy is needed.
 
+### Testing without AWS or Java
+
+`mock_lb.py` is a simulated load balancer that needs only Python 3 (standard library). It serves the UI itself and answers the three game endpoints with the same response formats as the real system:
+
+```
+python3 webui/mock_lb.py
+```
+
+Then open `http://localhost:8001/ui/`. When the UI is served from `/ui/`, it targets that server by default.
+
+What it simulates:
+- **Games:** simplified Python versions of the three workloads, with output formatted exactly like the Java handlers. Game of Life follows the Java rules exactly; Capture the Flag and the 15-Puzzle are close but not identical. The puzzle reports its shuffle length as the move count instead of running IDA*.
+- **Routing:** cheap requests go to "Lambda", whose responses are JSON-encoded strings with a cold start on the first call per game. Expensive ones go to a small "EC2" pool that boots instances on demand, holding requests while an instance starts, just like the real LB.
+- **Errors:** invalid CTF input, missing Game of Life maps, deadlocked simulations and, optionally, failing Lambda attempts with retries and EC2 fallback.
+
+Extra Game of Life maps: besides the files in `gameoflife/src/main/resources`, the mock accepts `random-<width>-<height>-<seed>.json`, for example `random-80-50-3.json`.
+
+Useful options (`--help` lists all of them):
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `--speed` | `1` | Multiplier for simulated run times; `0` answers instantly |
+| `--boot-seconds` | `8` | Simulated EC2 boot time |
+| `--max-instances` | `3` | EC2 pool limit |
+| `--lambda-threshold` | `20000` | Cost below which requests go to Lambda |
+| `--lambda-fail-rate` | `0` | Probability that a Lambda attempt fails (exercises retries) |
+| `--port` / `--host` | `8001` / `127.0.0.1` | Listen address |
+
 ### Features
 
 - **Capture the Flag**: the round-0 and final boards (agents, cooldowns, flags, trails, obstacles), score, winner and rounds. A deadlocked simulation returns only `no possible moves`, which is shown as an error.

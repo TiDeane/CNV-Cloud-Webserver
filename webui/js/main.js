@@ -6,7 +6,10 @@ import { runBurst, summarize } from './burst.js';
 
 const TARGET_KEY = 'gamesAtCloud.target';
 const THEME_KEY = 'gamesAtCloud.theme';
-const DEFAULT_TARGET = 'http://localhost:8001';
+// Served by webui/mock_lb.py at /ui/: talk to that same server by default.
+const DEFAULT_TARGET = location.protocol.startsWith('http') && location.pathname.startsWith('/ui/')
+  ? location.origin
+  : 'http://localhost:8001';
 
 const $ = (sel) => document.querySelector(sel);
 
