@@ -49,4 +49,8 @@ As mentioned in the previous section, the script ``general-deploy.sh`` can be us
 
 **Generating load**: in the directory ``scripts/tests/``, there are multiple scripts that send requests of different types to generate load on the webservers.
 
-**Web UI**: the directory ``webui/`` contains a static browser console to send requests, visualize each game and run load bursts. See ``webui/README.md``.
+## Web UI
+
+The directory ``webui/`` contains a browser console for sending requests, visualizing each game and running load bursts. It also includes a mock load balancer, so the UI can be tried without AWS or Java. See [webui/README.md](webui/README.md).
+
+> **Note:** the web UI is not part of the original university project delivery, and the [report](../final_project_report_CNV_g28.pdf) does not cover it. It was added afterwards, along with a small load balancer change for it: the ``X-Handled-By`` and ``X-Request-Id`` response headers.

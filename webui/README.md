@@ -4,9 +4,11 @@ A static browser console for Games@Cloud. It sends requests to the load balancer
 
 It is plain HTML/CSS/JS (ES modules). There is no build step or dependency.
 
+> **Note:** this web UI was not part of the original university project delivery, and the [report](../final_project_report_CNV_g28.pdf) does not cover it. It was added afterwards, together with the mock load balancer (`mock_lb.py`) and the `X-Handled-By` / `X-Request-Id` response headers in the load balancer handlers.
+
 ### How to run
 
-Serve the folder with any static file server. Opening `index.html` via `file://` blocks ES modules in some browsers.
+Serve the folder with any static file server.
 
 ```
 python3 -m http.server -d webui 8080
@@ -18,9 +20,9 @@ Then open `http://localhost:8080` and set **Target** to:
 
 All game handlers already send `Access-Control-Allow-Origin: *`, so no proxy is needed.
 
-### Testing without AWS or Java
+### Testing the UI without AWS or Java
 
-`mock_lb.py` is a simulated load balancer that needs only Python 3 (standard library). It serves the UI itself and answers the three game endpoints with the same response formats as the real system:
+`mock_lb.py` is a simulated load balancer that needs only the standard Python library. It serves the UI itself and answers the three game endpoints with the same response formats as the real system:
 
 ```
 python3 webui/mock_lb.py
