@@ -32,25 +32,30 @@ Refer to the `README.md` files of the sub-projects to get more details about eac
 2. Run `mvn clean package`
 3. To build and deploy the entire project from scratch, including the AMI image, run the script ``general-deploy.sh``. More information on what specifically this script does is in the next section.
 
-Keep in mind that it is necessary to update ``AutoScaler.java`` with the correct information (AMI ID, security group, etc.)
+For a step-by-step guide to deploying on AWS and testing the web UI against the deployment, including setup, known traps and teardown, see [test.md](test.md).
 
 ### Project Scripts
 
-As mentioned in the previous section, the script ``general-deploy.sh`` can be used to deploy the entire project from scratch. It does this by running the following scripts:
-- The script ``create-image.sh``, which creates an AMI of the webserver.
-- The script ``function-register.sh``, which registers our lambda functions in AWS. 
-- The script ``launch-lb.sh``, which creates and launches our own custom loadbalancer/autoscaler in an EC2 instance.
+As mentioned in the previous section, the script ``general-deploy.sh`` can be used to deploy the entire project from scratch. It checks ``config.sh``, then:
+- Runs ``create-image.sh``, which creates an AMI of the webserver.
+- Writes the new AMI ID, and the key pair and security group from ``config.sh``, into ``AutoScaler.java``.
+- Runs ``function-register.sh``, which registers our lambda functions in AWS.
+- Runs ``launch-lb.sh``, which compiles and launches our own custom loadbalancer/autoscaler in an EC2 instance.
 
-**Note**: to run these scripts, it is necessary to write your AWS credentials into the script ``config.sh``.
+With ``--use-existing-image``, it skips creating the AMI and keeps the one already set in ``AutoScaler.java``.
 
-**Running locally**: to run our load balancer or webservers locally, it is also necessary to load your AWS credentials into the environment with ``source config.sh`` so that they can interact with AWS resources.
+The script ``terminate-deploy.sh`` tears the deployment down: the load balancer, the workers, the lambda functions and the AMI with its snapshot. It asks whether to also delete the DynamoDB tables, and ``--keep-image`` keeps the AMI for a later ``general-deploy.sh --use-existing-image``.
+
+**Note**: to run these scripts, it is necessary to write your AWS credentials, region, key pair and security group into the script ``config.sh``. The Java code also reads the region from it (``AWS_DEFAULT_REGION``).
+
+**Running locally**: to run our load balancer or webservers locally, it is also necessary to load your AWS credentials and region into the environment with ``source config.sh`` so that they can interact with AWS resources.
 
 **Full AWS deployment**: The script ``launch-deployment-template.sh`` can also be used to launch the deployment using alarms, load balancing and auto scaling with AWS-owned resources.
 
-**Generating load**: in the directory ``scripts/tests/``, there are multiple scripts that send requests of different types to generate load on the webservers.
+**Generating load**: in the directory ``scripts/tests/``, there are multiple scripts that send requests of different types to generate load on the webservers. [test.md](test.md) shows how to use them.
 
 ## Web UI
 
-The directory ``webui/`` contains a browser console for sending requests, visualizing each game and running load bursts. It also includes a mock load balancer, so the UI can be tried without AWS or Java. See [webui/README.md](webui/README.md).
+The directory ``webui/`` contains a browser console for sending requests, visualizing each game and running load bursts. It also includes a mock load balancer, so the UI can be tried without AWS or Java. See [webui/README.md](webui/README.md), and [test.md](test.md) for using it against the real AWS deployment.
 
-> **Note:** the web UI is not part of the original university project delivery, and the [report](../final_project_report_CNV_g28.pdf) does not cover it. It was added afterwards, along with a small load balancer change for it: the ``X-Handled-By`` and ``X-Request-Id`` response headers.
+> **Note:** the web UI is not part of the original university project delivery, and the [report](final_project_report_CNV_g28.pdf) does not cover it. It was added afterwards, along with a small load balancer change for it: the ``X-Handled-By`` and ``X-Request-Id`` response headers.
