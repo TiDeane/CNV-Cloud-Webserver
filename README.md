@@ -11,6 +11,8 @@ Detailed information on this project, including reasoning for the decisions made
 - **Auto-scaling algorithm**;
 - **Fault-tolerance**.
 
+The report describes the project as delivered. Later changes are listed in [Changes after delivery](#changes-after-delivery).
+
 ## Modules
 
 This project contains eight modules:
@@ -58,4 +60,13 @@ The script ``terminate-deploy.sh`` tears the deployment down: the load balancer,
 
 The directory ``webui/`` contains a browser console for sending requests, visualizing each game and running load bursts. It also includes a mock load balancer, so the UI can be tried without AWS or Java. See [webui/README.md](webui/README.md), and [test.md](test.md) for using it against the real AWS deployment.
 
-> **Note:** the web UI is not part of the original university project delivery, and the [report](final_project_report_CNV_g28.pdf) does not cover it. It was added afterwards, along with a small load balancer change for it: the ``X-Handled-By`` and ``X-Request-Id`` response headers.
+## Changes after delivery
+
+The project was delivered, discussed and graded before the changes below were made. None of them are crucial or load-bearing: the system worked as delivered, and they don't change its architecture or the algorithms described in the report.
+
+- The auto-scaling CPU thresholds were adjusted, following the professors' advice at the project discussion.
+- The [web UI](#web-ui) was added, along with the ``X-Handled-By`` and ``X-Request-Id`` response headers in the load balancer.
+- The deployment scripts were improved and automated.
+- The Java code reads the AWS region from ``config.sh`` instead of hardcoding ``eu-west-1``.
+- The root handlers (``/``) now finish their responses instead of leaving them open.
+- A [deployment guide](test.md) was added.
