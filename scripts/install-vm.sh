@@ -53,5 +53,3 @@ java -cp /home/ec2-user/webserver.jar \\
     pt.ulisboa.tecnico.cnv.webserver.WebServer &
 exit 0\" | sudo tee /etc/rc.local && sudo chmod +x /etc/rc.local"
 ssh -o StrictHostKeyChecking=no -i $AWS_EC2_SSH_KEYPAR_PATH ec2-user@$(cat instance.dns) "$cmd"
-
-java -cp /home/ec2-user/webserver.jar -Xbootclasspath/a:/home/ec2-user/javassist-agent.jar -javaagent:/home/ec2-user/webserver.jar=MetricsExtractor:pt.ulisboa.tecnico.cnv.capturetheflag,pt.ulisboa.tecnico.cnv.fifteenpuzzle,pt.ulisboa.tecnico.cnv.gameoflife:output pt.ulisboa.tecnico.cnv.webserver.WebServer
