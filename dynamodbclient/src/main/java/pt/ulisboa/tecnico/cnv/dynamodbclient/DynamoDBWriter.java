@@ -6,8 +6,6 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import javax.smartcardio.ATR;
-
 import java.util.List;
 
 import com.amazonaws.AmazonClientException;
@@ -39,7 +37,8 @@ import com.amazonaws.services.dynamodbv2.util.TableUtils;
  */
 public class DynamoDBWriter {
 
-    private static String AWS_REGION = "eu-west-1";
+    // Can't use Constants.AWS_REGION: common depends on this module
+    private static String AWS_REGION = System.getenv().getOrDefault("AWS_DEFAULT_REGION", "eu-west-1");
     private static String ongoingRequestsTableName = "CNVOngoingRequests";
     private static String metricsTableName = "CNVRequestMetrics";
 

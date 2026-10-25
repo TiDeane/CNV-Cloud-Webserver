@@ -52,7 +52,7 @@ public class AutoScaler {
     private static final double BETA = 6.223594986449469e-5;
     private static final double INTERCEPT = 206.2278774369248;
 
-    private static String AWS_REGION = "eu-west-1";
+    private static String AWS_REGION = Constants.AWS_REGION;
     private static String AMI_ID = "ami-0fb57757d66e8b279";        // replace with webserver AMI
     private static String INSTANCE_TYPE = "t2.micro";
     private static String KEY_NAME = "eu-west-1-keypair";          // replace with your keypair

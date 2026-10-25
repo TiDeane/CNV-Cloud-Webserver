@@ -10,8 +10,8 @@ public final class Constants {
     //Port for worker handlers
     public static final String WORKER_PORT = "8000";
 
-    //AWS region to deploy the infrastructure
-    public static final String AWS_REGION = "eu-west-1";
+    //AWS region to deploy the infrastructure (AWS_DEFAULT_REGION from config.sh, eu-west-1 if unset)
+    public static final String AWS_REGION = System.getenv().getOrDefault("AWS_DEFAULT_REGION", "eu-west-1");
 
     //Game Of Life LBHandler specific constants
     public static final String GOL_HANDLER = "GameOfLifeHandler";
