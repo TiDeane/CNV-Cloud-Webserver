@@ -107,7 +107,7 @@ export async function sendRequest(base, game, params, { signal } = {}) {
   return result;
 }
 
-/** Root handlers send headers right away but never close the body, so resolve on headers. */
+/** Resolve on headers: root handlers built before the fix never close the body. */
 export async function checkTarget(base, timeoutMs = 5000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);

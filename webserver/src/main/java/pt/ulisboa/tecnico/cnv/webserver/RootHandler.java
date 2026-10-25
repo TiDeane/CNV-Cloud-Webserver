@@ -28,6 +28,9 @@ public class RootHandler implements HttpHandler {
             query = HELLO_MSG;
         System.out.println(query);
 
-        he.sendResponseHeaders(200, 0);
+        he.sendResponseHeaders(200, HELLO_MSG.length());
+        OutputStream os = he.getResponseBody();
+        os.write(HELLO_MSG.getBytes());
+        os.close();
     }
 }

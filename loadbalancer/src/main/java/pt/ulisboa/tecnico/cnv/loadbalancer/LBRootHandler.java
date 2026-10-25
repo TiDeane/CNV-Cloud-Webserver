@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.cnv.loadbalancer;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
 import java.net.URI;
@@ -27,6 +28,9 @@ public class LBRootHandler implements HttpHandler {
             query = HELLO_MSG;
         System.out.println(query);
 
-        he.sendResponseHeaders(200, 0);
+        he.sendResponseHeaders(200, HELLO_MSG.length());
+        OutputStream os = he.getResponseBody();
+        os.write(HELLO_MSG.getBytes());
+        os.close();
     }
 }
